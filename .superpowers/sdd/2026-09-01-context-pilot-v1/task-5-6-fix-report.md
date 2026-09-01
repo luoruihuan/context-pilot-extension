@@ -39,3 +39,9 @@
 提取阶段点击停止时，`ChatController` 会进入 `stopped`，此时只有 user turn、尚未创建 assistant turn，原 UI 因而没有可见终态。新增 focused 测试先确认 `ChatView` 在 `status="stopped"`、无 assistant turn 时缺少可访问提示（RED），再通过透传 `chat.status` 并渲染 `role="status"` 的“已停止读取”终态提示修复（GREEN）。
 
 本次复验：全量 17 个测试文件、99 tests 通过；`pnpm typecheck`、`pnpm lint`、`pnpm build` 均通过。
+
+## 第二轮 Scoped Re-review 补修
+
+上一版使用“历史中不存在任何 assistant turn”判断提取停止，导致已有完整历史回答后，下一轮读取中停止仍不显示终态。新增连续对话 focused 测试先复现该问题（RED），并覆盖当前轮已存在 stopped assistant 时不得重复显示提示。
+
+实现改为仅在全局状态为 `stopped` 且最后一条 turn 是当前 user 时展示“已停止读取”；最后一条为 assistant 时由现有消息徽标表达停止状态，不再重复提示。复验：focused 16 tests、全量 17 个测试文件 / 101 tests、typecheck、lint、build 全部通过。

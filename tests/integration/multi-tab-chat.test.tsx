@@ -133,4 +133,46 @@ describe("multi-tab chat", () => {
 
     expect(screen.getByRole("status")).toHaveTextContent("已停止读取");
   });
+
+  it("shows stopped reading for the current user turn after a completed conversation", () => {
+    render(
+      <ChatView
+        turns={[
+          { id: "user-1", role: "user", content: "第一问", sources: [], createdAt: 1, status: "complete" },
+          { id: "assistant-1", role: "assistant", content: "第一答", sources: [], createdAt: 2, status: "complete" },
+          { id: "user-2", role: "user", content: "第二问", sources: [], createdAt: 3, status: "complete" },
+        ]}
+        tabs={tabs}
+        selectedTabs={[tabs[0]!]}
+        onTabsChange={vi.fn()}
+        onSubmit={vi.fn()}
+        configured
+        onOpenSettings={vi.fn()}
+        status="stopped"
+      />,
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent("已停止读取");
+  });
+
+  it("does not duplicate the stopped message when the current turn has a stopped assistant", () => {
+    render(
+      <ChatView
+        turns={[
+          { id: "user-1", role: "user", content: "问题", sources: [], createdAt: 1, status: "complete" },
+          { id: "assistant-1", role: "assistant", content: "部分回答", sources: [], createdAt: 2, status: "stopped" },
+        ]}
+        tabs={tabs}
+        selectedTabs={[tabs[0]!]}
+        onTabsChange={vi.fn()}
+        onSubmit={vi.fn()}
+        configured
+        onOpenSettings={vi.fn()}
+        status="stopped"
+      />,
+    );
+
+    expect(screen.getByText("已停止")).toBeVisible();
+    expect(screen.queryByText("已停止读取")).not.toBeInTheDocument();
+  });
 });

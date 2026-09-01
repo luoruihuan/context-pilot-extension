@@ -32,6 +32,8 @@ interface ChatViewProps {
 }
 
 export function ChatView(props: ChatViewProps) {
+  const currentTurnStoppedBeforeResponse =
+    props.status === "stopped" && props.turns.at(-1)?.role === "user";
   const selectedTabs = props.selectedTabs.map((tab) => {
     const error = props.sourceErrors?.find((item) => item.tabId === tab.tabId);
     if (error?.code === "PERMISSION_REQUIRED") return { ...tab, permission: "required" as const };
@@ -57,7 +59,7 @@ export function ChatView(props: ChatViewProps) {
             ).join("、")}
           </div>
         )}
-        {props.status === "stopped" && !props.turns.some((turn) => turn.role === "assistant") && (
+        {currentTurnStoppedBeforeResponse && (
           <div className={styles.readingStatus} role="status" aria-live="polite">
             已停止读取
           </div>
