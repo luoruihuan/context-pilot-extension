@@ -1,0 +1,21 @@
+<html>
+  <head>
+    <title>Example article</title>
+    <meta name="description" content="A concise article description">
+    <style>.hidden-copy { display: none; }</style>
+  </head>
+  <body>
+    <nav>Navigation item</nav>
+    <main>
+      <article>
+        <h1>Example article</h1>
+        <h2>Overview</h2>
+        <p>Main article paragraph with enough meaningful prose to be extracted from the article.</p>
+        <ul><li>First visible item</li><li>Second visible item</li></ul>
+        <p class="hidden-copy">Hidden article copy</p>
+      </article>
+    </main>
+    <form><input value="Secret form value"></form>
+    <script>window.secret = 'must not extract';</script>
+  </body>
+</html>
