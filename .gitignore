@@ -3,6 +3,7 @@ node_modules/
 dist/
 coverage/
 .wxt/
+.worktrees/
 .env
 .env.*
 !.env.example
@@ -10,4 +11,3 @@ coverage/
 *.log
 playwright-report/
 test-results/
-
