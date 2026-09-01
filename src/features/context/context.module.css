@@ -1,0 +1,75 @@
+.chips {
+  display: flex;
+  gap: 6px;
+  min-height: 28px;
+  overflow-x: auto;
+  padding: 2px 0;
+  scrollbar-width: none;
+}
+
+.chip {
+  align-items: center;
+  background: var(--cp-color-surface-subtle);
+  border: 1px solid var(--cp-color-border);
+  border-radius: var(--cp-radius-button);
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 5px;
+  height: 26px;
+  max-width: 220px;
+  padding: 0 5px 0 7px;
+}
+
+.chipTitle {
+  max-width: 116px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chip button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--cp-color-text-muted);
+  display: inline-flex;
+  padding: 2px;
+}
+
+.picker {
+  background: var(--cp-panel-background);
+  border: 1px solid var(--cp-color-border-strong);
+  border-radius: var(--cp-panel-radius);
+  bottom: calc(100% + 8px);
+  box-shadow: var(--cp-shadow-picker);
+  left: 0;
+  max-height: min(360px, 55vh);
+  overflow: hidden;
+  padding: 8px;
+  position: absolute;
+  right: 0;
+  z-index: 20;
+}
+
+.picker input {
+  background: var(--cp-color-surface-subtle);
+  border: 1px solid var(--cp-color-border);
+  border-radius: var(--cp-button-radius);
+  box-sizing: border-box;
+  color: var(--cp-color-text);
+  height: 36px;
+  padding: 0 10px;
+  width: 100%;
+}
+
+.picker input:focus-visible { box-shadow: var(--cp-focus-ring); outline: none; }
+.pickerMeta { color: var(--cp-color-text-muted); display: flex; font-size: 11px; justify-content: space-between; padding: 7px 4px 5px; }
+.picker ul { list-style: none; margin: 0; max-height: 270px; overflow-y: auto; padding: 0; }
+.picker li { align-items: center; border-radius: var(--cp-button-radius); cursor: pointer; display: flex; gap: 8px; min-height: 48px; padding: 4px 8px; }
+.picker li[data-active="true"] { background: var(--cp-color-accent-soft); }
+.picker li[aria-disabled="true"] { cursor: default; opacity: .58; }
+.favicon { align-items: center; background: var(--cp-color-surface-subtle); border-radius: var(--cp-button-radius); color: var(--cp-color-text-muted); display: inline-flex; flex: 0 0 28px; height: 28px; justify-content: center; }
+.tabCopy { display: grid; flex: 1; min-width: 0; }
+.tabCopy strong, .tabCopy small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tabCopy strong { font-size: 13px; font-weight: 600; }
+.tabCopy small { color: var(--cp-color-text-muted); font-size: 11px; }

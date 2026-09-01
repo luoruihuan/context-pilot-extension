@@ -1,0 +1,26 @@
+.chatView { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-height: 0; }
+.scrollRegion { min-height: 0; overflow-y: auto; padding: 20px 16px 12px; }
+.welcome { align-items: center; display: flex; flex-direction: column; margin: clamp(30px, 12vh, 88px) auto 0; max-width: 440px; text-align: center; }
+.wordmark { align-items: center; background: var(--cp-color-accent); border-radius: 8px; color: var(--cp-color-on-accent); display: flex; font-size: 12px; font-weight: 800; height: 36px; justify-content: center; margin-bottom: 16px; width: 36px; }
+.welcome h2 { font-size: 18px; letter-spacing: 0; margin: 0; }
+.welcome p { color: var(--cp-color-text-muted); line-height: 1.55; margin: 8px 0 20px; max-width: 340px; }
+.quickActions { display: grid; gap: 8px; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
+.quickActions button { align-items: center; background: var(--cp-color-surface); border: 1px solid var(--cp-color-border); border-radius: var(--cp-button-radius); color: var(--cp-color-text); cursor: pointer; display: flex; gap: 8px; min-height: 42px; padding: 8px 10px; text-align: left; }
+.quickActions button:hover { border-color: var(--cp-color-border-strong); background: var(--cp-color-surface-subtle); }
+.setupButton { background: var(--cp-color-accent); border: 0; border-radius: var(--cp-button-radius); color: var(--cp-color-on-accent); font-weight: 700; margin-top: 16px; min-height: 36px; padding: 0 14px; }
+.composerShell { background: var(--cp-color-background); border-top: 1px solid var(--cp-color-border); padding: 8px 12px 12px; position: relative; }
+.composer { background: var(--cp-color-surface); border: 1px solid var(--cp-color-border-strong); border-radius: var(--cp-input-radius); box-shadow: var(--cp-shadow-input); min-height: 104px; overflow: hidden; }
+.composer:focus-within { border-color: var(--cp-color-accent); box-shadow: var(--cp-focus-ring); }
+.composer textarea { background: transparent; border: 0; box-sizing: border-box; color: var(--cp-color-text); display: block; font: inherit; line-height: 1.5; max-height: 180px; min-height: 62px; outline: none; padding: 10px 12px 4px; resize: vertical; width: 100%; }
+.composer textarea::placeholder { color: var(--cp-color-text-subtle); }
+.composerBar { align-items: center; display: flex; height: 40px; padding: 0 5px; }
+.modelHint { color: var(--cp-color-text-muted); flex: 1; font-size: 12px; padding-left: 4px; }
+.messages { display: grid; gap: 22px; margin: 0 auto; max-width: 720px; }
+.message { display: grid; gap: 10px; grid-template-columns: 28px minmax(0, 1fr); }
+.avatar { align-items: center; background: var(--cp-color-surface-subtle); border-radius: var(--cp-button-radius); color: var(--cp-color-accent); display: flex; height: 28px; justify-content: center; }
+.messageBody { min-width: 0; }
+.messageBody p { line-height: 1.65; margin: 6px 0; white-space: pre-wrap; }
+.messageMeta { align-items: center; display: flex; gap: 8px; min-height: 22px; }
+.sources { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.sources a { background: var(--cp-color-surface-subtle); border-radius: var(--cp-button-radius); color: var(--cp-color-accent); font-size: 11px; padding: 4px 7px; text-decoration: none; }
+@media (max-width: 300px) { .quickActions { grid-template-columns: 1fr; } .welcome { margin-top: 24px; } }

@@ -1,0 +1,17 @@
+.settings { min-height: 0; overflow-y: auto; padding: 12px 16px 24px; }
+.settings header { align-items: center; border-bottom: 1px solid var(--cp-color-border); display: flex; gap: 8px; margin-bottom: 18px; padding-bottom: 12px; }
+.settings h2 { font-size: 16px; letter-spacing: 0; margin: 0; }
+.settings header p { color: var(--cp-color-text-muted); font-size: 12px; margin: 2px 0 0; }
+.form { display: grid; gap: 14px; margin: 0 auto; max-width: 520px; }
+.field { display: grid; gap: 6px; }
+.field label { font-size: 12px; font-weight: 650; }
+.field input, .field select { background: var(--cp-color-surface); border: 1px solid var(--cp-color-border-strong); border-radius: var(--cp-button-radius); box-sizing: border-box; color: var(--cp-color-text); font: inherit; height: 38px; padding: 0 10px; width: 100%; }
+.field input:focus-visible, .field select:focus-visible { box-shadow: var(--cp-focus-ring); outline: none; }
+.disclosure { background: var(--cp-color-warning-soft); border-left: 3px solid var(--cp-color-warning); color: var(--cp-color-text-muted); font-size: 12px; line-height: 1.5; margin: 2px 0; padding: 8px 10px; }
+.actions { display: flex; gap: 8px; justify-content: flex-end; }
+.actions button { align-items: center; border-radius: var(--cp-button-radius); display: inline-flex; font-weight: 650; gap: 6px; height: 36px; justify-content: center; padding: 0 12px; }
+.secondaryButton { background: var(--cp-color-surface); border: 1px solid var(--cp-color-border-strong); color: var(--cp-color-text); }
+.primaryButton { background: var(--cp-color-accent); border: 1px solid var(--cp-color-accent); color: var(--cp-color-on-accent); }
+.spin { animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
