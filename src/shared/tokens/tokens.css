@@ -1,0 +1,56 @@
+:root {
+  /* Primitive tokens */
+  --cp-color-slate-50: #f8fafc;
+  --cp-color-slate-100: #f1f5f9;
+  --cp-color-slate-500: #64748b;
+  --cp-color-slate-700: #334155;
+  --cp-color-slate-900: #0f172a;
+  --cp-color-teal-600: #0f766e;
+  --cp-color-red-600: #dc2626;
+  --cp-color-amber-600: #d97706;
+  --cp-color-green-600: #16a34a;
+  --cp-space-1: 4px;
+  --cp-radius-button: 6px;
+  --cp-radius-input: 8px;
+
+  /* Semantic tokens */
+  --cp-color-background: var(--cp-color-slate-50);
+  --cp-color-surface: #ffffff;
+  --cp-color-text: var(--cp-color-slate-900);
+  --cp-color-text-muted: var(--cp-color-slate-500);
+  --cp-color-border: var(--cp-color-slate-100);
+  --cp-color-accent: var(--cp-color-teal-600);
+  --cp-color-danger: var(--cp-color-red-600);
+  --cp-color-warning: var(--cp-color-amber-600);
+  --cp-color-success: var(--cp-color-green-600);
+
+  /* Component tokens */
+  --cp-panel-background: var(--cp-color-surface);
+  --cp-panel-radius: var(--cp-radius-input);
+  --cp-input-radius: var(--cp-radius-input);
+  --cp-button-radius: var(--cp-radius-button);
+  --cp-focus-ring: 0 0 0 2px var(--cp-color-accent);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Dark theme tokens */
+    --cp-color-background: var(--cp-color-slate-900);
+    --cp-color-surface: var(--cp-color-slate-700);
+    --cp-color-text: var(--cp-color-slate-50);
+    --cp-color-text-muted: #cbd5e1;
+    --cp-color-border: var(--cp-color-slate-500);
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--cp-color-background);
+  color: var(--cp-color-text);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 14px;
+}
+
+main {
+  padding: calc(var(--cp-space-1) * 4);
+}
