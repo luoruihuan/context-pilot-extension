@@ -15,6 +15,8 @@ describe("validateModelBaseUrl", () => {
   it.each([
     "https://key@example.com/v1",
     "https://example.com/v1#fragment",
+    "https://example.com/v1?api_key=secret",
+    "https://example.com/v1?token=secret",
     "not a URL",
   ])("rejects unsafe base URLs: %s", (value) => {
     expect(() => validateModelBaseUrl(value)).toThrow();

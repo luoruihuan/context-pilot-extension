@@ -55,6 +55,7 @@ describe("AnthropicMessagesProvider", () => {
   it("sends Messages request and emits text, usage, and completion", async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
       sseResponse([
+        "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"usage\":{\"input_tokens\":9}}}\n\n",
         "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"delta\":{\"type\":\"text_delta\",\"text\":\"Hi\"}}\n\n",
         "event: message_delta\ndata: {\"type\":\"message_delta\",\"usage\":{\"output_tokens\":1}}\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
       ]),
@@ -62,6 +63,7 @@ describe("AnthropicMessagesProvider", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(collect(new AnthropicMessagesProvider(), request())).resolves.toEqual([
+      { type: "usage", inputTokens: 9 },
       { type: "text-delta", text: "Hi" },
       { type: "usage", outputTokens: 1 },
       { type: "done", finishReason: "stop" },
@@ -81,6 +83,20 @@ describe("AnthropicMessagesProvider", () => {
       max_tokens: 300,
       stream: true,
     });
+  });
+
+  it("reports an unsupported response when the stream ends without message_stop", async () => {
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockResolvedValue(sseResponse([
+      "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"delta\":{\"type\":\"text_delta\",\"text\":\"partial\"}}\n\n",
+    ])));
+
+    await expect(collect(new AnthropicMessagesProvider(), request())).resolves.toEqual([
+      { type: "text-delta", text: "partial" },
+      expect.objectContaining({
+        type: "error",
+        error: expect.objectContaining({ code: "UNSUPPORTED_RESPONSE" }),
+      }),
+    ]);
   });
 
   it("does not send the browser access header to a compatible gateway", async () => {
@@ -156,5 +172,22 @@ describe("AnthropicMessagesProvider", () => {
     await expect(collect(new AnthropicMessagesProvider(), request(controller.signal))).resolves.toEqual([
       expect.objectContaining({ type: "error", error: expect.objectContaining({ code: "ABORTED" }) }),
     ]);
+  });
+
+  it("normalizes test connection network and abort failures", async () => {
+    const provider = new AnthropicMessagesProvider();
+    const controller = new AbortController();
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockRejectedValueOnce(new TypeError("offline")));
+    await expect(provider.testConnection(profile(), controller.signal)).rejects.toMatchObject({
+      code: "NETWORK_ERROR",
+      provider: "anthropic-messages",
+    });
+
+    controller.abort();
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockRejectedValueOnce(new DOMException("Aborted", "AbortError")));
+    await expect(provider.testConnection(profile(), controller.signal)).rejects.toMatchObject({
+      code: "ABORTED",
+      provider: "anthropic-messages",
+    });
   });
 });

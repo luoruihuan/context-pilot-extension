@@ -17,9 +17,11 @@ export function validateModelBaseUrl(value: string): { url: URL; originPattern: 
   if (url.hash) {
     throw new Error("Model base URL must not include a fragment");
   }
+  if (url.search) {
+    throw new Error("Model base URL must not include a query string");
+  }
 
   url.pathname = url.pathname.replace(/\/+$/u, "");
-  url.search = "";
   return { url, originPattern: `${url.origin}/*` };
 }
 

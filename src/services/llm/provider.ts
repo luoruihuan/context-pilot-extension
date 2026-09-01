@@ -42,6 +42,13 @@ export function streamError(
   return providerError(errorCodeFor(undefined, detail), provider, { requestId });
 }
 
+export function unsupportedResponseError(
+  provider: ProviderKind,
+  requestId?: string,
+): ProviderError {
+  return providerError("UNSUPPORTED_RESPONSE", provider, { requestId });
+}
+
 export function fetchError(error: unknown, provider: ProviderKind, signal: AbortSignal): ProviderError {
   if (signal.aborted || (error instanceof DOMException && error.name === "AbortError")) {
     return providerError("ABORTED", provider);

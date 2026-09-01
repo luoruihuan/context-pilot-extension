@@ -1,6 +1,12 @@
 import type { ChatRequest, ChatStreamEvent, ModelProfile } from "@/shared/types/domain";
 import { endpointUrl } from "@/services/llm/url-policy";
-import { fetchError, httpError, responseErrorDetail, streamError } from "@/services/llm/provider";
+import {
+  fetchError,
+  httpError,
+  responseErrorDetail,
+  streamError,
+  unsupportedResponseError,
+} from "@/services/llm/provider";
 import type { ModelProvider } from "@/services/llm/provider";
 import { parseSse } from "@/services/llm/sse";
 
@@ -12,10 +18,15 @@ interface OpenAiChunk {
 
 export class OpenAIChatProvider implements ModelProvider {
   async testConnection(profile: ModelProfile, signal: AbortSignal): Promise<void> {
-    const response = await fetch(endpointUrl(profile.baseUrl, "/models"), {
-      headers: { authorization: `Bearer ${profile.apiKey}` },
-      signal,
-    });
+    let response: Response;
+    try {
+      response = await fetch(endpointUrl(profile.baseUrl, "/models"), {
+        headers: { authorization: `Bearer ${profile.apiKey}` },
+        signal,
+      });
+    } catch (error) {
+      throw fetchError(error, "openai-chat", signal);
+    }
     if (!response.ok) throw httpError(response.status, "openai-chat", response.headers.get("x-request-id") ?? undefined);
   }
 
@@ -40,6 +51,7 @@ export class OpenAIChatProvider implements ModelProvider {
           max_tokens: request.maxOutputTokens,
           ...(request.temperature === undefined ? {} : { temperature: request.temperature }),
           stream: true,
+          stream_options: { include_usage: true },
         }),
         signal: request.signal,
       });
@@ -62,6 +74,7 @@ export class OpenAIChatProvider implements ModelProvider {
     }
 
     let finishReason: string | undefined;
+    let completed = false;
     try {
       for await (const event of parseSse(response.body)) {
         if (request.signal.aborted) {
@@ -69,8 +82,8 @@ export class OpenAIChatProvider implements ModelProvider {
           return;
         }
         if (event.data === "[DONE]") {
-          yield { type: "done", ...(finishReason === undefined ? {} : { finishReason }) };
-          return;
+          completed = true;
+          break;
         }
 
         const chunk = parseOpenAiChunk(event.data);
@@ -89,6 +102,11 @@ export class OpenAIChatProvider implements ModelProvider {
             ...(chunk.usage.completion_tokens === undefined ? {} : { outputTokens: chunk.usage.completion_tokens }),
           };
         }
+      }
+      if (completed) {
+        yield { type: "done", ...(finishReason === undefined ? {} : { finishReason }) };
+      } else {
+        yield { type: "error", error: unsupportedResponseError("openai-chat", requestId) };
       }
     } catch (error) {
       yield { type: "error", error: fetchError(error, "openai-chat", request.signal) };

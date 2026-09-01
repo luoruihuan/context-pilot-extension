@@ -134,6 +134,11 @@ export class ChatController {
     try {
       extractionResults = await this.dependencies.extraction.extractTabs(tabIds);
     } catch {
+      if (!this.isCurrentRun(runId)) return;
+      if (this.state.status === "stopped") {
+        await this.persist();
+        return;
+      }
       this.dispatch({
         type: "error",
         error: contextError("无法读取所选页签。"),

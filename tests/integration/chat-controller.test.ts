@@ -192,6 +192,44 @@ describe("ChatController", () => {
     expect(provider.streamChat).not.toHaveBeenCalled();
   });
 
+  it("does not let an extraction rejection after reset overwrite the new conversation", async () => {
+    let rejectExtraction: ((reason?: unknown) => void) | undefined;
+    const { controller, extraction, provider } = setup();
+    extraction.extractTabs.mockReturnValue(
+      new Promise((_resolve, reject) => {
+        rejectExtraction = reject;
+      }),
+    );
+
+    const sending = controller.send({ text: "旧问题", tabIds: [1], profileId: "p1" });
+    await vi.waitFor(() => expect(controller.getState().status).toBe("extracting"));
+    controller.reset();
+    rejectExtraction?.(new Error("Tab closed"));
+    await sending;
+
+    expect(controller.getState()).toMatchObject({ status: "idle", turns: [] });
+    expect(provider.streamChat).not.toHaveBeenCalled();
+  });
+
+  it("keeps stopped state when extraction rejects after stop", async () => {
+    let rejectExtraction: ((reason?: unknown) => void) | undefined;
+    const { controller, extraction, provider } = setup();
+    extraction.extractTabs.mockReturnValue(
+      new Promise((_resolve, reject) => {
+        rejectExtraction = reject;
+      }),
+    );
+
+    const sending = controller.send({ text: "停止读取", tabIds: [1], profileId: "p1" });
+    await vi.waitFor(() => expect(controller.getState().status).toBe("extracting"));
+    controller.stop();
+    rejectExtraction?.(new Error("Tab closed"));
+    await sending;
+
+    expect(controller.getState()).toMatchObject({ status: "stopped" });
+    expect(provider.streamChat).not.toHaveBeenCalled();
+  });
+
   it.each(["CONTEXT_TOO_LARGE", "NETWORK_ERROR"] as const)(
     "surfaces %s provider errors without discarding the conversation",
     async (code) => {

@@ -1,6 +1,12 @@
 import type { ChatRequest, ChatStreamEvent, ModelProfile } from "@/shared/types/domain";
 import { endpointUrl, validateModelBaseUrl } from "@/services/llm/url-policy";
-import { fetchError, httpError, responseErrorDetail, streamError } from "@/services/llm/provider";
+import {
+  fetchError,
+  httpError,
+  responseErrorDetail,
+  streamError,
+  unsupportedResponseError,
+} from "@/services/llm/provider";
 import type { ModelProvider } from "@/services/llm/provider";
 import type { SseEvent } from "@/services/llm/sse";
 import { parseSse } from "@/services/llm/sse";
@@ -15,10 +21,15 @@ interface AnthropicEvent {
 
 export class AnthropicMessagesProvider implements ModelProvider {
   async testConnection(profile: ModelProfile, signal: AbortSignal): Promise<void> {
-    const response = await fetch(endpointUrl(profile.baseUrl, "/v1/models"), {
-      headers: this.headers(profile),
-      signal,
-    });
+    let response: Response;
+    try {
+      response = await fetch(endpointUrl(profile.baseUrl, "/v1/models"), {
+        headers: this.headers(profile),
+        signal,
+      });
+    } catch (error) {
+      throw fetchError(error, "anthropic-messages", signal);
+    }
     if (!response.ok) throw httpError(response.status, "anthropic-messages", response.headers.get("request-id") ?? undefined);
   }
 
@@ -69,6 +80,7 @@ export class AnthropicMessagesProvider implements ModelProvider {
       return;
     }
 
+    let completed = false;
     try {
       for await (const event of parseSse(response.body)) {
         if (request.signal.aborted) {
@@ -80,6 +92,17 @@ export class AnthropicMessagesProvider implements ModelProvider {
         if (event.event === "error" || parsed.type === "error") {
           yield { type: "error", error: streamError("anthropic-messages", parsed.error?.message, requestId) };
           return;
+        }
+        if (event.event === "message_start" || parsed.type === "message_start") {
+          const usage = parsed.message?.usage;
+          if (usage !== undefined) {
+            yield {
+              type: "usage",
+              ...(usage.input_tokens === undefined ? {} : { inputTokens: usage.input_tokens }),
+              ...(usage.output_tokens === undefined ? {} : { outputTokens: usage.output_tokens }),
+            };
+          }
+          continue;
         }
         if (event.event === "content_block_delta" || parsed.type === "content_block_delta") {
           if (parsed.delta?.type === "text_delta" && parsed.delta.text !== undefined) {
@@ -99,9 +122,14 @@ export class AnthropicMessagesProvider implements ModelProvider {
           continue;
         }
         if (event.event === "message_stop" || parsed.type === "message_stop") {
-          yield { type: "done", finishReason: "stop" };
-          return;
+          completed = true;
+          break;
         }
+      }
+      if (completed) {
+        yield { type: "done", finishReason: "stop" };
+      } else {
+        yield { type: "error", error: unsupportedResponseError("anthropic-messages", requestId) };
       }
     } catch (error) {
       yield { type: "error", error: fetchError(error, "anthropic-messages", request.signal) };

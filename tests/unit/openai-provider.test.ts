@@ -85,7 +85,22 @@ describe("OpenAIChatProvider", () => {
       max_tokens: 250,
       temperature: 0.2,
       stream: true,
+      stream_options: { include_usage: true },
     });
+  });
+
+  it("reports an unsupported response when the stream ends without DONE", async () => {
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockResolvedValue(sseResponse([
+      "data: {\"choices\":[{\"delta\":{\"content\":\"partial\"}}]}\n\n",
+    ])));
+
+    await expect(collect(new OpenAIChatProvider(), request())).resolves.toEqual([
+      { type: "text-delta", text: "partial" },
+      expect.objectContaining({
+        type: "error",
+        error: expect.objectContaining({ code: "UNSUPPORTED_RESPONSE" }),
+      }),
+    ]);
   });
 
   it.each([
@@ -153,6 +168,23 @@ describe("OpenAIChatProvider", () => {
     expect(abortedEvents).toEqual([
       expect.objectContaining({ type: "error", error: expect.objectContaining({ code: "ABORTED" }) }),
     ]);
+  });
+
+  it("normalizes test connection network and abort failures", async () => {
+    const provider = new OpenAIChatProvider();
+    const controller = new AbortController();
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockRejectedValueOnce(new TypeError("offline")));
+    await expect(provider.testConnection(profile(), controller.signal)).rejects.toMatchObject({
+      code: "NETWORK_ERROR",
+      provider: "openai-chat",
+    });
+
+    controller.abort();
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockRejectedValueOnce(new DOMException("Aborted", "AbortError")));
+    await expect(provider.testConnection(profile(), controller.signal)).rejects.toMatchObject({
+      code: "ABORTED",
+      provider: "openai-chat",
+    });
   });
 
   it("registers the OpenAI provider by its domain kind", () => {
