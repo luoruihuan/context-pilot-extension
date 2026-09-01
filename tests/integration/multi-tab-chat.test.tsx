@@ -109,4 +109,28 @@ describe("multi-tab chat", () => {
       expect.objectContaining({ tabId: 2, permission: "granted" }),
     ]);
   });
+
+  it("shows an accessible terminal message when reading is stopped before extraction completes", () => {
+    render(
+      <ChatView
+        turns={[{
+          id: "user-1",
+          role: "user",
+          content: "读取当前页面",
+          sources: [],
+          createdAt: 1,
+          status: "complete",
+        }]}
+        tabs={tabs}
+        selectedTabs={[tabs[0]!]}
+        onTabsChange={vi.fn()}
+        onSubmit={vi.fn()}
+        configured
+        onOpenSettings={vi.fn()}
+        status="stopped"
+      />,
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent("已停止读取");
+  });
 });

@@ -33,3 +33,9 @@
 - 连接测试错误文案沿用底层异常消息；未泄露 API Key。
 - UI 的读取中页签由 chat extracting 状态映射，实际提取仍由现有 ChatController 管理。
 - profile 删除后自动选择 default 或首个剩余 profile；删除最后一个 profile 后保持未配置状态。
+
+## Scoped Re-review P1 补修
+
+提取阶段点击停止时，`ChatController` 会进入 `stopped`，此时只有 user turn、尚未创建 assistant turn，原 UI 因而没有可见终态。新增 focused 测试先确认 `ChatView` 在 `status="stopped"`、无 assistant turn 时缺少可访问提示（RED），再通过透传 `chat.status` 并渲染 `role="status"` 的“已停止读取”终态提示修复（GREEN）。
+
+本次复验：全量 17 个测试文件、99 tests 通过；`pnpm typecheck`、`pnpm lint`、`pnpm build` 均通过。

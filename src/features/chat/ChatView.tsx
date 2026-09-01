@@ -2,7 +2,7 @@ import { BarChart3, FileSearch, ListChecks, Rows3 } from "lucide-react";
 import type { ChatTurn, TabReference } from "@/shared/types/domain";
 import { Composer } from "./Composer";
 import { MessageList } from "./MessageList";
-import type { ChatUsage, SourceError } from "./chat-reducer";
+import type { ChatStatus, ChatUsage, SourceError } from "./chat-reducer";
 import styles from "./chat.module.css";
 
 const actions = [
@@ -28,6 +28,7 @@ interface ChatViewProps {
   usage?: ChatUsage;
   onStop?(): void;
   readingTabs?: number[];
+  status?: ChatStatus;
 }
 
 export function ChatView(props: ChatViewProps) {
@@ -54,6 +55,11 @@ export function ChatView(props: ChatViewProps) {
             读取中：{props.readingTabs.map((tabId) =>
               selectedTabs.find((tab) => tab.tabId === tabId)?.title ?? `页签 ${tabId}`
             ).join("、")}
+          </div>
+        )}
+        {props.status === "stopped" && !props.turns.some((turn) => turn.role === "assistant") && (
+          <div className={styles.readingStatus} role="status" aria-live="polite">
+            已停止读取
           </div>
         )}
         {props.turns.length > 0 ? (

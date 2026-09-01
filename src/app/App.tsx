@@ -44,6 +44,7 @@ function Workspace() {
           usage={app.chat.usage}
           onStop={app.stop}
           readingTabs={app.chat.status === "extracting" ? app.selectedTabs.map((tab) => tab.tabId) : []}
+          status={app.chat.status}
         />
       )}
       {app.view === "history" && <HistoryView items={[]} onBack={() => app.setView("chat")} onOpen={() => app.setView("chat")} onDelete={() => undefined} />}
