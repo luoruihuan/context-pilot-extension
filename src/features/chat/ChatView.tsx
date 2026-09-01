@@ -2,6 +2,7 @@ import { BarChart3, FileSearch, ListChecks, Rows3 } from "lucide-react";
 import type { ChatTurn, TabReference } from "@/shared/types/domain";
 import { Composer } from "./Composer";
 import { MessageList } from "./MessageList";
+import type { ChatUsage, SourceError } from "./chat-reducer";
 import styles from "./chat.module.css";
 
 const actions = [
@@ -16,15 +17,28 @@ interface ChatViewProps {
   tabs: TabReference[];
   selectedTabs: TabReference[];
   onTabsChange(tabs: TabReference[]): void;
-  onSubmit(message: string): void;
+  onSubmit(message: string, tabIds: number[]): void;
   configured: boolean;
   onOpenSettings(): void;
+  streaming?: boolean;
+  errorMessage?: string;
+  sourceErrors?: SourceError[];
+  usage?: ChatUsage;
+  onStop?(): void;
 }
 
 export function ChatView(props: ChatViewProps) {
   return (
     <section className={styles.chatView} aria-label="AI 对话">
       <div className={styles.scrollRegion}>
+        {props.errorMessage && (
+          <div className={styles.chatError} role="alert">{props.errorMessage}</div>
+        )}
+        {props.sourceErrors && props.sourceErrors.length > 0 && (
+          <div className={styles.sourceWarning} role="status">
+            {props.sourceErrors.map((error) => error.sourceId).join("、")} 读取失败，已继续分析其他页面。
+          </div>
+        )}
         {props.turns.length > 0 ? (
           <MessageList turns={props.turns} />
         ) : (
@@ -34,7 +48,11 @@ export function ChatView(props: ChatViewProps) {
             <p>引用一个或多个页签，整理信息、比较观点或分析表格。</p>
             <div className={styles.quickActions}>
               {actions.map(({ label, icon: Icon }) => (
-                <button type="button" key={label} onClick={() => props.onSubmit(label)}>
+                <button
+                  type="button"
+                  key={label}
+                  onClick={() => props.onSubmit(label, props.selectedTabs.map((tab) => tab.tabId))}
+                >
                   <Icon size={16} />
                   {label}
                 </button>
@@ -47,6 +65,11 @@ export function ChatView(props: ChatViewProps) {
             )}
           </div>
         )}
+        {props.usage && (props.usage.inputTokens !== undefined || props.usage.outputTokens !== undefined) && (
+          <p className={styles.usage}>
+            用量：输入 {props.usage.inputTokens ?? "-"} · 输出 {props.usage.outputTokens ?? "-"}
+          </p>
+        )}
       </div>
       <Composer
         tabs={props.tabs}
@@ -54,6 +77,8 @@ export function ChatView(props: ChatViewProps) {
         onTabsChange={props.onTabsChange}
         onSubmit={props.onSubmit}
         disabled={!props.configured}
+        streaming={props.streaming}
+        onStop={props.onStop}
       />
     </section>
   );

@@ -10,25 +10,6 @@ import styles from "./app.module.css";
 function Workspace() {
   const app = useApp();
 
-  function submit(message: string) {
-    app.setTurns([
-      ...app.turns,
-      {
-        id: crypto.randomUUID(),
-        role: "user",
-        content: message,
-        sources: app.selectedTabs.map(({ title, url }, index) => ({
-          sourceId: `T${index + 1}`,
-          title,
-          url,
-          extractedAt: Date.now(),
-        })),
-        createdAt: Date.now(),
-        status: "complete",
-      },
-    ]);
-  }
-
   return (
     <main className={styles.app} aria-labelledby="app-title">
       <header className={styles.toolbar}>
@@ -37,7 +18,7 @@ function Workspace() {
           <h1 id="app-title">Context Pilot</h1>
         </div>
         <nav aria-label="主要工具">
-          <IconButton label="新对话" onClick={() => { app.setTurns([]); app.setView("chat"); }}><Plus size={18} /></IconButton>
+          <IconButton label="新对话" onClick={() => { app.resetChat(); app.setView("chat"); }}><Plus size={18} /></IconButton>
           <IconButton label="对话历史" onClick={() => app.setView("history")}><History size={17} /></IconButton>
           <IconButton label="设置" onClick={() => app.setView("settings")}><Settings size={17} /></IconButton>
         </nav>
@@ -48,17 +29,22 @@ function Workspace() {
       </section>
       {app.view === "chat" && (
         <ChatView
-          turns={app.turns}
+          turns={app.chat.turns}
           tabs={app.tabs}
           selectedTabs={app.selectedTabs}
           onTabsChange={app.setSelectedTabs}
-          onSubmit={submit}
+          onSubmit={(message, tabIds) => void app.send(message, tabIds)}
           configured={Boolean(app.profile)}
           onOpenSettings={() => app.setView("settings")}
+          streaming={app.chat.status === "extracting" || app.chat.status === "streaming"}
+          errorMessage={app.chat.error?.message}
+          sourceErrors={app.chat.sourceErrors}
+          usage={app.chat.usage}
+          onStop={app.stop}
         />
       )}
       {app.view === "history" && <HistoryView items={[]} onBack={() => app.setView("chat")} onOpen={() => app.setView("chat")} onDelete={() => undefined} />}
-      {app.view === "settings" && <SettingsView profile={app.profile} onBack={() => app.setView("chat")} onSave={(profile) => { app.setProfile(profile); app.setView("chat"); }} onTest={() => Promise.resolve()} />}
+      {app.view === "settings" && <SettingsView profile={app.profile} onBack={() => app.setView("chat")} onSave={async (profile) => { await app.saveProfile(profile); app.setView("chat"); }} onTest={app.testProfile} />}
     </main>
   );
 }

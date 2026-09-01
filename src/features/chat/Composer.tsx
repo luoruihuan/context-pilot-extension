@@ -10,7 +10,7 @@ interface ComposerProps {
   tabs: TabReference[];
   selectedTabs: TabReference[];
   onTabsChange(tabs: TabReference[]): void;
-  onSubmit(message: string): void;
+  onSubmit(message: string, tabIds: number[]): void;
   disabled?: boolean;
   streaming?: boolean;
   onStop?(): void;
@@ -31,7 +31,7 @@ export function Composer({
   function submit() {
     const message = value.trim();
     if (!message || disabled || streaming) return;
-    onSubmit(message);
+    onSubmit(message, selectedTabs.map((tab) => tab.tabId));
     setValue("");
   }
 
