@@ -2,7 +2,8 @@ import { defineConfig } from "wxt";
 
 export default defineConfig({
   modules: ["@wxt-dev/module-react"],
-  srcDir: ".",
+  srcDir: "src",
+  entrypointsDir: "../entrypoints",
   manifest: {
     name: "Context Pilot",
     description: "使用自有 AI 模型理解和比较主动选择的网页内容。",

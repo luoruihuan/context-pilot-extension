@@ -1,0 +1,202 @@
+import { describe, expect, it, vi } from "vitest";
+
+import type { ChromeAdapter } from "@/services/browser/chrome-adapter";
+import { BackgroundMessageRouter } from "@/services/browser/background-router";
+import { ExtractionClient } from "@/services/browser/extraction-client";
+import { PermissionService } from "@/services/browser/permission-service";
+import { TabService } from "@/services/browser/tab-service";
+import type { PageSnapshot } from "@/shared/types/domain";
+
+function snapshot(tabId: number): PageSnapshot {
+  return {
+    sourceId: `T${tabId}`,
+    tabId,
+    title: `Page ${tabId}`,
+    url: `https://example.com/${tabId}`,
+    extractedAt: 1,
+    routeVersion: `https://example.com/${tabId}`,
+    headings: [],
+    paragraphs: [`Body ${tabId}`],
+    lists: [],
+    tables: [],
+    plainText: `Body ${tabId}`,
+    extractionMethod: "visible-text",
+    truncated: false,
+  };
+}
+
+function adapter(overrides: Partial<ChromeAdapter> = {}): ChromeAdapter {
+  return {
+    containsPermissions: vi.fn().mockResolvedValue(true),
+    requestPermissions: vi.fn().mockResolvedValue(true),
+    queryTabs: vi.fn().mockResolvedValue([]),
+    getTab: vi.fn(),
+    executeExtraction: vi.fn(),
+    sendMessage: vi.fn(),
+    ...overrides,
+  };
+}
+
+function router(chrome: ChromeAdapter): BackgroundMessageRouter {
+  const permissions = new PermissionService(chrome);
+  return new BackgroundMessageRouter(
+    "extension-id",
+    new TabService(chrome, permissions),
+    permissions,
+    chrome,
+  );
+}
+
+describe("BackgroundMessageRouter", () => {
+  it("rejects extraction from restricted target schemes", async () => {
+    const chrome = adapter({
+      getTab: vi.fn().mockResolvedValue({
+        id: 3,
+        windowId: 1,
+        active: false,
+        title: "Settings",
+        url: "chrome://settings",
+      }),
+    });
+
+    await expect(
+      router(chrome).handle(
+        { type: "context-pilot/extract-page", tabId: 3, taskId: "task-1" },
+        { id: "extension-id" },
+      ),
+    ).resolves.toMatchObject({
+      type: "context-pilot/error",
+      code: "RESTRICTED_PAGE",
+    });
+    expect(chrome.executeExtraction).not.toHaveBeenCalled();
+  });
+
+  it("rejects messages not sent by this extension", async () => {
+    const chrome = adapter();
+
+    await expect(
+      router(chrome).handle(
+        { type: "context-pilot/get-tabs" },
+        { id: "another-extension" },
+      ),
+    ).resolves.toMatchObject({
+      type: "context-pilot/error",
+      code: "INVALID_SENDER",
+    });
+  });
+
+  it("derives the requested origin from the target tab instead of trusting input", async () => {
+    const requestPermissions = vi.fn().mockResolvedValue(true);
+    const chrome = adapter({
+      requestPermissions,
+      getTab: vi.fn().mockResolvedValue({
+        id: 4,
+        windowId: 1,
+        active: false,
+        title: "Docs",
+        url: "https://docs.example.com/guide",
+      }),
+    });
+
+    const response = await router(chrome).handle(
+      {
+        type: "context-pilot/request-tab-access",
+        tabId: 4,
+        origin: "https://attacker.example",
+      },
+      { id: "extension-id" },
+    );
+
+    expect(response).toMatchObject({
+      type: "context-pilot/tab-access",
+      tabId: 4,
+      granted: true,
+    });
+    expect(requestPermissions).toHaveBeenCalledWith({
+      origins: ["https://docs.example.com/*"],
+    });
+  });
+
+  it("validates injected extraction results before returning them", async () => {
+    const chrome = adapter({
+      getTab: vi.fn().mockResolvedValue({
+        id: 5,
+        windowId: 1,
+        active: true,
+        title: "Page",
+        url: "https://example.com/5",
+      }),
+      executeExtraction: vi.fn().mockResolvedValue({ tabId: 5 }),
+    });
+
+    await expect(
+      router(chrome).handle(
+        { type: "context-pilot/extract-page", tabId: 5, taskId: "task-5" },
+        { id: "extension-id" },
+      ),
+    ).resolves.toMatchObject({
+      type: "context-pilot/error",
+      code: "INVALID_SNAPSHOT",
+    });
+  });
+});
+
+describe("ExtractionClient", () => {
+  it("keeps selection order and exposes individual failures", async () => {
+    const sendMessage = vi.fn(async (request: unknown) => {
+      const tabId = (request as { tabId: number }).tabId;
+      if (tabId === 2) {
+        return {
+          type: "context-pilot/error" as const,
+          code: "TAB_CLOSED",
+          message: "closed",
+        };
+      }
+      await new Promise((resolve) => setTimeout(resolve, tabId === 1 ? 5 : 0));
+      return {
+        type: "context-pilot/page-snapshot" as const,
+        taskId: `task-${tabId}`,
+        snapshot: snapshot(tabId),
+      };
+    });
+    const client = new ExtractionClient(sendMessage);
+
+    const results = await client.extractTabs([1, 2, 3]);
+
+    expect(results.map((result) => result.tabId)).toEqual([1, 2, 3]);
+    expect(results.map((result) => result.status)).toEqual([
+      "fulfilled",
+      "rejected",
+      "fulfilled",
+    ]);
+  });
+
+  it("rejects invalid tab IDs and more than ten selections", async () => {
+    const client = new ExtractionClient(vi.fn());
+    await expect(client.extractTabs([1, 1])).rejects.toThrow();
+    await expect(
+      client.extractTabs(Array.from({ length: 11 }, (_, index) => index + 1)),
+    ).rejects.toThrow();
+  });
+});
+
+describe("Browser extraction metadata", () => {
+  it("requires injected metadata to match the current task", async () => {
+    const { readExtractionMetadata } = await import(
+      "@/services/browser/extraction-metadata"
+    );
+    const target: Record<string, unknown> = {};
+    target.__contextPilotExtraction = {
+      tabId: 7,
+      taskId: "task-7",
+      sourceId: "T7",
+    };
+
+    expect(readExtractionMetadata(target, "task-7")).toEqual({
+      tabId: 7,
+      taskId: "task-7",
+      sourceId: "T7",
+    });
+    expect(() => readExtractionMetadata(target, "another-task")).toThrow();
+  });
+});
