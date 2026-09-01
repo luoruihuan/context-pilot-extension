@@ -5,8 +5,23 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ModelProfileForm } from "@/features/settings/ModelProfileForm";
+import { SettingsView } from "@/features/settings/SettingsView";
+import type { ModelProfile } from "@/shared/types/domain";
 
 afterEach(cleanup);
+
+const profile = (id: string, name: string): ModelProfile => ({
+  id,
+  name,
+  provider: "openai-chat",
+  baseUrl: "https://api.example.com/v1",
+  apiKey: "key",
+  model: "model",
+  maxOutputTokens: 1024,
+  isDefault: id === "p1",
+  createdAt: 1,
+  updatedAt: 1,
+});
 
 describe("ModelProfileForm", () => {
   it("saves an OpenAI-compatible profile with a secret key", async () => {
@@ -46,5 +61,46 @@ describe("ModelProfileForm", () => {
     expect(onTest).toHaveBeenCalledWith(
       expect.objectContaining({ provider: "anthropic-messages" }),
     );
+  });
+
+  it("shows connection test failures as an alert", async () => {
+    const user = userEvent.setup();
+    const onTest = vi.fn().mockRejectedValue(new Error("连接失败"));
+    render(<ModelProfileForm onSave={vi.fn()} onTest={onTest} />);
+
+    await user.type(screen.getByLabelText("配置名称"), "Work");
+    await user.type(screen.getByLabelText("API 地址"), "https://api.example.com/v1");
+    await user.type(screen.getByLabelText("API Key"), "key");
+    await user.type(screen.getByLabelText("模型名称"), "model");
+    await user.click(screen.getByRole("button", { name: "测试连接" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("连接失败");
+  });
+
+  it("lists profiles and supports selecting, creating, and deleting a profile", async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    const onCreate = vi.fn();
+    const onDelete = vi.fn();
+    render(
+      <SettingsView
+        profiles={[profile("p1", "Primary"), profile("p2", "Backup")]}
+        profile={profile("p1", "Primary")}
+        onBack={vi.fn()}
+        onSave={vi.fn()}
+        onTest={vi.fn()}
+        onSelect={onSelect}
+        onCreate={onCreate}
+        onDelete={onDelete}
+      />,
+    );
+    expect(screen.getByRole("option", { name: /Primary/ })).toBeVisible();
+    expect(screen.getByRole("option", { name: /Backup/ })).toBeVisible();
+    await user.click(screen.getByRole("option", { name: /Backup/ }));
+    expect(onSelect).toHaveBeenCalledWith("p2");
+    await user.click(screen.getByRole("button", { name: "新建配置" }));
+    expect(onCreate).toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "删除配置" }));
+    expect(onDelete).toHaveBeenCalledWith("p1");
   });
 });

@@ -37,8 +37,22 @@ export class TabService {
     const references = await Promise.all(
       tabs.map(async (tab): Promise<TabReference | null> => {
         const url = pageUrl(tab);
-        if (!url || tab.id === undefined || tab.windowId === undefined) {
+        if (tab.id === undefined || tab.windowId === undefined) {
           return null;
+        }
+
+        if (!url) {
+          const restrictedUrl = tab.url ?? "";
+          return {
+            tabId: tab.id,
+            windowId: tab.windowId,
+            title: tab.title?.trim() || "受限页面",
+            url: restrictedUrl,
+            origin: "",
+            ...(tab.favIconUrl ? { favIconUrl: tab.favIconUrl } : {}),
+            isCurrent: tab.active === true,
+            permission: "restricted",
+          };
         }
 
         const isCurrent = tab.active === true;

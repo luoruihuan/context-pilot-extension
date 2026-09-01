@@ -28,6 +28,11 @@ export class RuntimeClient {
     return expectResponse(response, "context-pilot/tabs").tabs;
   }
 
+  async requestTabsPermission(): Promise<boolean> {
+    const response = await this.chrome.sendMessage({ type: "context-pilot/request-tabs-permission" });
+    return expectResponse(response, "context-pilot/tabs-permission").granted;
+  }
+
   async requestTabAccess(tabId: number, origin: string): Promise<boolean> {
     const response = await this.chrome.sendMessage({
       type: "context-pilot/request-tab-access",

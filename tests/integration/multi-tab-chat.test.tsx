@@ -63,4 +63,50 @@ describe("multi-tab chat", () => {
     expect(onSubmit).toHaveBeenCalledWith("比较两个页面", [1, 2]);
     expect(onSubmit.mock.calls[0]?.[1]).toEqual([1, 2]);
   });
+
+  it("keeps restricted and reading states visible with accessible status and stop control", () => {
+    const restricted = { ...tabs[1]!, permission: "restricted" as const };
+    render(
+      <ChatView
+        turns={[]}
+        tabs={[tabs[0]!, restricted]}
+        selectedTabs={[restricted]}
+        onTabsChange={vi.fn()}
+        onSubmit={vi.fn()}
+        configured
+        onOpenSettings={vi.fn()}
+        readingTabs={[restricted.tabId]}
+        onStop={vi.fn()}
+        streaming
+      />,
+    );
+    expect(screen.getByText("不可读取")).toBeVisible();
+    expect(screen.getByRole("status")).toHaveTextContent("读取中");
+    expect(screen.getByRole("button", { name: "停止读取" })).toBeVisible();
+  });
+
+  it("keeps a permission failure visible and lets the user retry access", async () => {
+    const user = userEvent.setup();
+    const onTabsChange = vi.fn();
+    const onRequestTabAccess = vi.fn().mockResolvedValue(true);
+    render(
+      <ChatView
+        turns={[]}
+        tabs={tabs}
+        selectedTabs={[tabs[1]!]}
+        onTabsChange={onTabsChange}
+        onSubmit={vi.fn()}
+        configured
+        onOpenSettings={vi.fn()}
+        sourceErrors={[{ sourceId: "T1", tabId: 2, code: "PERMISSION_REQUIRED", message: "denied" }]}
+        onRequestTabAccess={onRequestTabAccess}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "重新授权 Beta" }));
+    expect(onRequestTabAccess).toHaveBeenCalledWith(expect.objectContaining({ tabId: 2 }));
+    expect(onTabsChange).toHaveBeenCalledWith([
+      expect.objectContaining({ tabId: 2, permission: "granted" }),
+    ]);
+  });
 });

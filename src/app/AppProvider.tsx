@@ -32,9 +32,15 @@ interface AppState {
   send(message: string, tabIds: number[]): Promise<void>;
   stop(): void;
   resetChat(): void;
+  profiles: ModelProfile[];
   profile?: ModelProfile;
+  selectProfile(id: string): void;
+  createProfile(): void;
   saveProfile(profile: ModelProfile): Promise<void>;
+  deleteProfile(id: string): Promise<void>;
   testProfile(profile: ModelProfile): Promise<void>;
+  requestTabsPermission(): Promise<boolean>;
+  requestTabAccess(tab: TabReference): Promise<boolean>;
 }
 
 const AppContext = createContext<AppState | null>(null);
@@ -43,6 +49,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [view, setView] = useState<View>("chat");
   const [context, dispatch] = useReducer(contextReducer, { selectedTabs: [] });
   const [tabs, setTabs] = useState<TabReference[]>([]);
+  const [profiles, setProfiles] = useState<ModelProfile[]>([]);
   const [profile, setProfile] = useState<ModelProfile>();
   const services = useMemo(() => {
     const runtime = new RuntimeClient();
@@ -65,6 +72,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       ([nextTabs, profiles]) => {
         if (!active) return;
         setTabs(nextTabs);
+        setProfiles(profiles);
         const defaultProfile = profiles.find((item) => item.isDefault) ?? profiles[0];
         setProfile(defaultProfile);
         const currentTab = nextTabs.find((tab) => tab.isCurrent && tab.permission === "granted");
@@ -84,7 +92,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   async function saveProfile(nextProfile: ModelProfile): Promise<void> {
     await services.profiles.save(nextProfile);
+    setProfiles(await services.profiles.list());
     setProfile(nextProfile);
+  }
+
+  async function deleteProfile(id: string): Promise<void> {
+    await services.profiles.delete(id);
+    const nextProfiles = await services.profiles.list();
+    setProfiles(nextProfiles);
+    setProfile(nextProfiles.find((item) => item.isDefault) ?? nextProfiles[0]);
+  }
+
+  async function requestTabsPermission(): Promise<boolean> {
+    const granted = await services.runtime.requestTabsPermission();
+    if (granted) setTabs(await services.runtime.listTabs());
+    return granted;
+  }
+
+  async function requestTabAccess(tab: TabReference): Promise<boolean> {
+    const granted = await services.runtime.requestTabAccess(tab.tabId, tab.origin);
+    if (granted) setTabs(await services.runtime.listTabs());
+    return granted;
   }
 
   async function testProfile(nextProfile: ModelProfile): Promise<void> {
@@ -105,11 +133,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
       },
       stop: () => services.controller.stop(),
       resetChat: () => services.controller.reset(),
+      profiles,
       profile,
+      selectProfile: (id) => setProfile(profiles.find((item) => item.id === id)),
+      createProfile: () => setProfile(undefined),
       saveProfile,
+      deleteProfile,
       testProfile,
+      requestTabsPermission,
+      requestTabAccess,
     }),
-    [chat, context.selectedTabs, profile, services, tabs, view],
+    [chat, context.selectedTabs, profile, profiles, services, tabs, view],
   );
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

@@ -15,6 +15,7 @@ import type {
 
 const requestSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("context-pilot/get-tabs") }).strict(),
+  z.object({ type: z.literal("context-pilot/request-tabs-permission") }).strict(),
   z
     .object({
       type: z.literal("context-pilot/request-tab-access"),
@@ -37,6 +38,11 @@ export interface MessageSenderIdentity {
 
 function error(code: string, message: string): ExtensionResponse {
   return { type: "context-pilot/error", code, message };
+}
+
+function isPermissionInjectionError(caught: unknown): boolean {
+  const message = caught instanceof Error ? caught.message : String(caught);
+  return /cannot access|permission|not allowed|cannot be scripted/i.test(message);
 }
 
 export class BackgroundMessageRouter {
@@ -65,6 +71,13 @@ export class BackgroundMessageRouter {
       switch (request.type) {
         case "context-pilot/get-tabs":
           return { type: "context-pilot/tabs", tabs: await this.tabs.listTabs() };
+        case "context-pilot/request-tabs-permission":
+          return {
+            type: "context-pilot/tabs-permission",
+            granted:
+              (await this.permissions.hasTabsPermission()) ||
+              (await this.permissions.requestTabsPermission()),
+          };
         case "context-pilot/request-tab-access": {
           const tab = await this.tabs.requireReadableTab(request.tabId);
           const granted =
@@ -82,10 +95,15 @@ export class BackgroundMessageRouter {
             return error("PERMISSION_REQUIRED", "Page access is required");
           }
 
-          const rawSnapshot = await this.chrome.executeExtraction(
-            request.tabId,
-            request.taskId,
-          );
+          let rawSnapshot: unknown;
+          try {
+            rawSnapshot = await this.chrome.executeExtraction(request.tabId, request.taskId);
+          } catch (caught) {
+            if (isPermissionInjectionError(caught)) {
+              return error("PERMISSION_REQUIRED", "Page access is required");
+            }
+            throw caught;
+          }
           const snapshot = pageSnapshotSchema.safeParse(rawSnapshot);
           if (!snapshot.success || snapshot.data.tabId !== request.tabId) {
             return error("INVALID_SNAPSHOT", "Page extraction returned invalid data");

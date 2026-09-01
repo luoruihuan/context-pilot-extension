@@ -26,6 +26,7 @@ export function ModelProfileForm({
   const [model, setModel] = useState(initialProfile?.model ?? "");
   const [testing, setTesting] = useState(false);
   const [testPassed, setTestPassed] = useState(false);
+  const [testError, setTestError] = useState("");
   const profile = useMemo<ModelProfile>(() => {
     const timestamp = now();
     return {
@@ -46,9 +47,12 @@ export function ModelProfileForm({
   async function testConnection() {
     setTesting(true);
     setTestPassed(false);
+    setTestError("");
     try {
       await onTest(profile);
       setTestPassed(true);
+    } catch (caught) {
+      setTestError(caught instanceof Error ? caught.message : "连接测试失败。请检查配置后重试。");
     } finally {
       setTesting(false);
     }
@@ -85,6 +89,7 @@ export function ModelProfileForm({
         <input id="profile-model" required value={model} onChange={(event) => setModel(event.target.value)} placeholder="服务商支持的模型 ID" />
       </div>
       <p className={styles.disclosure}>网页内容和问题会直接发送到你配置的 AI 服务商，开发者不会接收这些数据。</p>
+      {testError && <p className={styles.formError} role="alert">{testError}</p>}
       <div className={styles.actions}>
         <button className={styles.secondaryButton} type="button" disabled={testing} onClick={() => void testConnection()}>
           {testing ? <LoaderCircle className={styles.spin} size={15} /> : testPassed ? <CheckCircle2 size={15} /> : <PlugZap size={15} />}

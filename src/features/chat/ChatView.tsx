@@ -18,6 +18,8 @@ interface ChatViewProps {
   selectedTabs: TabReference[];
   onTabsChange(tabs: TabReference[]): void;
   onSubmit(message: string, tabIds: number[]): void;
+  onRequestTabsPermission?(): Promise<boolean>;
+  onRequestTabAccess?(tab: TabReference): Promise<boolean>;
   configured: boolean;
   onOpenSettings(): void;
   streaming?: boolean;
@@ -25,9 +27,17 @@ interface ChatViewProps {
   sourceErrors?: SourceError[];
   usage?: ChatUsage;
   onStop?(): void;
+  readingTabs?: number[];
 }
 
 export function ChatView(props: ChatViewProps) {
+  const selectedTabs = props.selectedTabs.map((tab) => {
+    const error = props.sourceErrors?.find((item) => item.tabId === tab.tabId);
+    if (error?.code === "PERMISSION_REQUIRED") return { ...tab, permission: "required" as const };
+    if (error?.code === "RESTRICTED_PAGE") return { ...tab, permission: "restricted" as const };
+    return tab;
+  });
+
   return (
     <section className={styles.chatView} aria-label="AI 对话">
       <div className={styles.scrollRegion}>
@@ -37,6 +47,13 @@ export function ChatView(props: ChatViewProps) {
         {props.sourceErrors && props.sourceErrors.length > 0 && (
           <div className={styles.sourceWarning} role="status">
             {props.sourceErrors.map((error) => error.sourceId).join("、")} 读取失败，已继续分析其他页面。
+          </div>
+        )}
+        {props.readingTabs && props.readingTabs.length > 0 && (
+          <div className={styles.readingStatus} role="status" aria-live="polite">
+            读取中：{props.readingTabs.map((tabId) =>
+              selectedTabs.find((tab) => tab.tabId === tabId)?.title ?? `页签 ${tabId}`
+            ).join("、")}
           </div>
         )}
         {props.turns.length > 0 ? (
@@ -73,12 +90,15 @@ export function ChatView(props: ChatViewProps) {
       </div>
       <Composer
         tabs={props.tabs}
-        selectedTabs={props.selectedTabs}
+        selectedTabs={selectedTabs}
         onTabsChange={props.onTabsChange}
         onSubmit={props.onSubmit}
+        onRequestTabsPermission={props.onRequestTabsPermission}
+        onRequestTabAccess={props.onRequestTabAccess}
         disabled={!props.configured}
         streaming={props.streaming}
         onStop={props.onStop}
+        stopLabel={props.readingTabs && props.readingTabs.length > 0 ? "停止读取" : "停止生成"}
       />
     </section>
   );

@@ -74,4 +74,70 @@ describe("Composer tab mentions", () => {
     await user.keyboard("{Backspace}");
     expect(onTabsChange).toHaveBeenLastCalledWith([]);
   });
+
+  it("requests tabs permission before listing and origin permission before selecting a required tab", async () => {
+    const user = userEvent.setup();
+    const events: string[] = [];
+    const onTabsChange = vi.fn();
+    const onRequestTabsPermission = vi.fn(async () => { events.push("tabs"); return true; });
+    const onRequestTabAccess = vi.fn(async () => { events.push("origin"); return true; });
+    render(
+      <Composer
+        tabs={tabs}
+        selectedTabs={[]}
+        onTabsChange={onTabsChange}
+        onSubmit={vi.fn()}
+        onRequestTabsPermission={onRequestTabsPermission}
+        onRequestTabAccess={onRequestTabAccess}
+      />,
+    );
+
+    await user.type(screen.getByRole("textbox", { name: "向 AI 提问" }), "@");
+    await user.click(screen.getByRole("option", { name: /Research notes/ }));
+
+    expect(events).toEqual(["tabs", "origin"]);
+    expect(onRequestTabAccess).toHaveBeenCalledWith(tabs[1]);
+    expect(onTabsChange).toHaveBeenCalledWith([
+      expect.objectContaining({ tabId: 2, permission: "granted" }),
+    ]);
+  });
+
+  it("keeps a denied required tab visible and exposes a retryable error", async () => {
+    const user = userEvent.setup();
+    const onTabsChange = vi.fn();
+    const onRequestTabAccess = vi.fn().mockResolvedValue(false);
+    render(
+      <Composer
+        tabs={tabs}
+        selectedTabs={[]}
+        onTabsChange={onTabsChange}
+        onSubmit={vi.fn()}
+        onRequestTabsPermission={vi.fn().mockResolvedValue(true)}
+        onRequestTabAccess={onRequestTabAccess}
+      />,
+    );
+
+    await user.type(screen.getByRole("textbox", { name: "向 AI 提问" }), "@");
+    await user.click(screen.getByRole("option", { name: /Research notes/ }));
+
+    expect(onTabsChange).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent("需要授权");
+    expect(screen.getByRole("option", { name: /Research notes/ })).toBeVisible();
+  });
+
+  it("renders a restricted tab even when Chrome withholds its URL", async () => {
+    const user = userEvent.setup();
+    render(
+      <Composer
+        tabs={[{ ...tabs[1]!, title: "受限页面", url: "", origin: "", permission: "restricted" }]}
+        selectedTabs={[]}
+        onTabsChange={vi.fn()}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "引用页签" }));
+    expect(screen.getByRole("option", { name: /受限页面/ })).toBeVisible();
+    expect(screen.getByText("不可读取")).toBeVisible();
+  });
 });

@@ -4,6 +4,7 @@ import type { ChromeAdapter } from "@/services/browser/chrome-adapter";
 import { BackgroundMessageRouter } from "@/services/browser/background-router";
 import { ExtractionClient } from "@/services/browser/extraction-client";
 import { PermissionService } from "@/services/browser/permission-service";
+import { RuntimeClient } from "@/services/browser/runtime-client";
 import { TabService } from "@/services/browser/tab-service";
 import type { PageSnapshot } from "@/shared/types/domain";
 
@@ -48,6 +49,61 @@ function router(chrome: ChromeAdapter): BackgroundMessageRouter {
 }
 
 describe("BackgroundMessageRouter", () => {
+  it("requests optional tabs permission only through an explicit message", async () => {
+    const requestPermissions = vi.fn().mockResolvedValue(false);
+    const chrome = adapter({
+      containsPermissions: vi.fn().mockResolvedValue(false),
+      requestPermissions,
+    });
+
+    await expect(
+      router(chrome).handle(
+        { type: "context-pilot/request-tabs-permission" },
+        { id: "extension-id" },
+      ),
+    ).resolves.toMatchObject({
+      type: "context-pilot/tabs-permission",
+      granted: false,
+    });
+    expect(requestPermissions).toHaveBeenCalledWith({ permissions: ["tabs"] });
+  });
+
+  it("does not prompt for tabs permission again after it is granted", async () => {
+    const requestPermissions = vi.fn();
+    const chrome = adapter({
+      containsPermissions: vi.fn().mockResolvedValue(true),
+      requestPermissions,
+    });
+
+    await expect(
+      router(chrome).handle(
+        { type: "context-pilot/request-tabs-permission" },
+        { id: "extension-id" },
+      ),
+    ).resolves.toMatchObject({
+      type: "context-pilot/tabs-permission",
+      granted: true,
+    });
+    expect(requestPermissions).not.toHaveBeenCalled();
+  });
+
+  it("keeps restricted tabs in the picker data", async () => {
+    const chrome = adapter({
+      queryTabs: vi.fn().mockResolvedValue([
+        { id: 9, windowId: 1, active: false, title: "Chrome settings", url: "chrome://settings" },
+      ]),
+    });
+
+    await expect(
+      router(chrome).handle(
+        { type: "context-pilot/get-tabs" },
+        { id: "extension-id" },
+      ),
+    ).resolves.toMatchObject({
+      type: "context-pilot/tabs",
+      tabs: [{ tabId: 9, permission: "restricted" }],
+    });
+  });
   it("rejects extraction from restricted target schemes", async () => {
     const chrome = adapter({
       getTab: vi.fn().mockResolvedValue({
@@ -137,6 +193,46 @@ describe("BackgroundMessageRouter", () => {
     ).resolves.toMatchObject({
       type: "context-pilot/error",
       code: "INVALID_SNAPSHOT",
+    });
+  });
+
+  it("normalizes an active-tab injection failure to permission required", async () => {
+    const chrome = adapter({
+      getTab: vi.fn().mockResolvedValue({
+        id: 6,
+        windowId: 1,
+        active: true,
+        title: "Page",
+        url: "https://example.com/6",
+      }),
+      executeExtraction: vi.fn().mockRejectedValue(new Error("Cannot access contents")),
+    });
+
+    await expect(
+      router(chrome).handle(
+        { type: "context-pilot/extract-page", tabId: 6, taskId: "task-6" },
+        { id: "extension-id" },
+      ),
+    ).resolves.toMatchObject({
+      type: "context-pilot/error",
+      code: "PERMISSION_REQUIRED",
+    });
+  });
+});
+
+describe("RuntimeClient", () => {
+  it("sends the explicit tabs permission request", async () => {
+    const chrome = adapter({
+      sendMessage: vi.fn().mockResolvedValue({
+        type: "context-pilot/tabs-permission",
+        granted: true,
+      }),
+    });
+    const client = new RuntimeClient(chrome);
+
+    await expect(client.requestTabsPermission()).resolves.toBe(true);
+    expect(chrome.sendMessage).toHaveBeenCalledWith({
+      type: "context-pilot/request-tabs-permission",
     });
   });
 });

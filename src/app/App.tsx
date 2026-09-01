@@ -33,6 +33,8 @@ function Workspace() {
           tabs={app.tabs}
           selectedTabs={app.selectedTabs}
           onTabsChange={app.setSelectedTabs}
+          onRequestTabsPermission={app.requestTabsPermission}
+          onRequestTabAccess={app.requestTabAccess}
           onSubmit={(message, tabIds) => void app.send(message, tabIds)}
           configured={Boolean(app.profile)}
           onOpenSettings={() => app.setView("settings")}
@@ -41,10 +43,11 @@ function Workspace() {
           sourceErrors={app.chat.sourceErrors}
           usage={app.chat.usage}
           onStop={app.stop}
+          readingTabs={app.chat.status === "extracting" ? app.selectedTabs.map((tab) => tab.tabId) : []}
         />
       )}
       {app.view === "history" && <HistoryView items={[]} onBack={() => app.setView("chat")} onOpen={() => app.setView("chat")} onDelete={() => undefined} />}
-      {app.view === "settings" && <SettingsView profile={app.profile} onBack={() => app.setView("chat")} onSave={async (profile) => { await app.saveProfile(profile); app.setView("chat"); }} onTest={app.testProfile} />}
+      {app.view === "settings" && <SettingsView profiles={app.profiles} profile={app.profile} onBack={() => app.setView("chat")} onSave={app.saveProfile} onTest={app.testProfile} onSelect={app.selectProfile} onCreate={app.createProfile} onDelete={app.deleteProfile} />}
     </main>
   );
 }

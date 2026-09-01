@@ -8,6 +8,7 @@ interface TabMentionPickerProps {
   tabs: TabReference[];
   selectedTabs: TabReference[];
   onSelect(tab: TabReference): void;
+  onRequestTabAccess?(tab: TabReference): Promise<boolean>;
   onClose(): void;
 }
 
@@ -15,10 +16,13 @@ export function TabMentionPicker({
   tabs,
   selectedTabs,
   onSelect,
+  onRequestTabAccess,
   onClose,
 }: TabMentionPickerProps) {
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
+  const [accessError, setAccessError] = useState("");
+  const [requestingTabId, setRequestingTabId] = useState<number>();
   const inputRef = useRef<HTMLInputElement>(null);
   const selectedIds = useMemo(
     () => new Set(selectedTabs.map((tab) => tab.tabId)),
@@ -40,7 +44,7 @@ export function TabMentionPicker({
     inputRef.current?.focus();
   }, []);
 
-  function choose(index: number) {
+  async function choose(index: number) {
     const tab = results[index];
     if (
       tab &&
@@ -48,7 +52,22 @@ export function TabMentionPicker({
       selectedTabs.length < 10 &&
       tab.permission !== "restricted"
     ) {
-      onSelect(tab);
+      if (tab.permission === "required" && onRequestTabAccess) {
+        setAccessError("");
+        setRequestingTabId(tab.tabId);
+        try {
+          if (!(await onRequestTabAccess(tab))) {
+            setAccessError(`“${tab.title}”需要授权。请选择该页签重试。`);
+            return;
+          }
+        } catch {
+          setAccessError(`无法授权“${tab.title}”。请选择该页签重试。`);
+          return;
+        } finally {
+          setRequestingTabId(undefined);
+        }
+      }
+      onSelect(tab.permission === "required" && onRequestTabAccess ? { ...tab, permission: "granted" } : tab);
       onClose();
     }
   }
@@ -77,7 +96,7 @@ export function TabMentionPicker({
             setActiveIndex((index) => Math.max(index - 1, 0));
           } else if (event.key === "Enter") {
             event.preventDefault();
-            choose(activeIndex);
+            void choose(activeIndex);
           } else if (event.key === "Escape") {
             event.preventDefault();
             onClose();
@@ -88,6 +107,7 @@ export function TabMentionPicker({
         <span>已选 {selectedTabs.length}/10</span>
         <span>当前页优先</span>
       </div>
+      {accessError && <p className={styles.pickerError} role="alert">{accessError}</p>}
       <ul id="context-tab-list" role="listbox">
         {results.map((tab, index) => {
           const selected = selectedIds.has(tab.tabId);
@@ -102,9 +122,10 @@ export function TabMentionPicker({
               role="option"
               aria-selected={selected}
               aria-disabled={disabled}
+              aria-busy={requestingTabId === tab.tabId}
               data-active={index === activeIndex}
               onMouseDown={(event) => event.preventDefault()}
-              onClick={() => choose(index)}
+              onClick={() => void choose(index)}
             >
               <span className={styles.favicon}>
                 {tab.permission === "restricted" ? (
@@ -117,12 +138,17 @@ export function TabMentionPicker({
               </span>
               <span className={styles.tabCopy}>
                 <strong>{tab.title}</strong>
-                <small>{new URL(tab.url).hostname}</small>
+                <small>{tab.origin || "受限页面"}</small>
               </span>
               {tab.isCurrent && <StatusBadge tone="busy">当前</StatusBadge>}
               {selected && <StatusBadge>已添加</StatusBadge>}
               {tab.permission === "required" && (
-                <StatusBadge tone="warning">需授权</StatusBadge>
+                <StatusBadge tone="warning">
+                  {requestingTabId === tab.tabId ? "授权中" : "需授权"}
+                </StatusBadge>
+              )}
+              {tab.permission === "restricted" && (
+                <StatusBadge tone="danger">不可读取</StatusBadge>
               )}
             </li>
           );

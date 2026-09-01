@@ -3,11 +3,20 @@
 .settings h2 { font-size: 16px; letter-spacing: 0; margin: 0; }
 .settings header p { color: var(--cp-color-text-muted); font-size: 12px; margin: 2px 0 0; }
 .form { display: grid; gap: 14px; margin: 0 auto; max-width: 520px; }
+.profileManager { display: grid; gap: 8px; margin: 0 auto 18px; max-width: 520px; }
+.profileToolbar { align-items: center; display: flex; justify-content: space-between; }
+.profileToolbar button, .deleteButton { align-items: center; border-radius: var(--cp-button-radius); display: inline-flex; gap: 6px; min-height: 32px; padding: 0 9px; }
+.profileList { display: grid; gap: 4px; }
+.profileList button { background: var(--cp-color-surface); border: 1px solid var(--cp-color-border); border-radius: var(--cp-button-radius); color: var(--cp-color-text); display: flex; justify-content: space-between; min-height: 38px; padding: 8px 10px; text-align: left; }
+.profileList button[aria-selected="true"] { border-color: var(--cp-color-accent); background: var(--cp-color-accent-soft); }
+.profileList small { color: var(--cp-color-text-muted); }
+.deleteButton { background: transparent; border: 1px solid var(--cp-color-border); color: var(--cp-color-danger); justify-self: end; }
 .field { display: grid; gap: 6px; }
 .field label { font-size: 12px; font-weight: 650; }
 .field input, .field select { background: var(--cp-color-surface); border: 1px solid var(--cp-color-border-strong); border-radius: var(--cp-button-radius); box-sizing: border-box; color: var(--cp-color-text); font: inherit; height: 38px; padding: 0 10px; width: 100%; }
 .field input:focus-visible, .field select:focus-visible { box-shadow: var(--cp-focus-ring); outline: none; }
 .disclosure { background: var(--cp-color-warning-soft); border-left: 3px solid var(--cp-color-warning); color: var(--cp-color-text-muted); font-size: 12px; line-height: 1.5; margin: 2px 0; padding: 8px 10px; }
+.formError { color: var(--cp-color-danger); font-size: 12px; margin: 0; }
 .actions { display: flex; gap: 8px; justify-content: flex-end; }
 .actions button { align-items: center; border-radius: var(--cp-button-radius); display: inline-flex; font-weight: 650; gap: 6px; height: 36px; justify-content: center; padding: 0 12px; }
 .secondaryButton { background: var(--cp-color-surface); border: 1px solid var(--cp-color-border-strong); color: var(--cp-color-text); }

@@ -64,6 +64,7 @@
 
 .picker input:focus-visible { box-shadow: var(--cp-focus-ring); outline: none; }
 .pickerMeta { color: var(--cp-color-text-muted); display: flex; font-size: 11px; justify-content: space-between; padding: 7px 4px 5px; }
+.pickerError { color: var(--cp-color-danger); font-size: 12px; line-height: 1.4; margin: 0; padding: 4px; }
 .picker ul { list-style: none; margin: 0; max-height: 270px; overflow-y: auto; padding: 0; }
 .picker li { align-items: center; border-radius: var(--cp-button-radius); cursor: pointer; display: flex; gap: 8px; min-height: 48px; padding: 4px 8px; }
 .picker li[data-active="true"] { background: var(--cp-color-accent-soft); }

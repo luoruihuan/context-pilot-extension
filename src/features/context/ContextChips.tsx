@@ -6,9 +6,11 @@ import styles from "./context.module.css";
 export function ContextChips({
   tabs,
   onRemove,
+  onRequestTabAccess,
 }: {
   tabs: TabReference[];
   onRemove(tabId: number): void;
+  onRequestTabAccess?(tab: TabReference): Promise<boolean>;
 }) {
   return (
     <div className={styles.chips} aria-label="本轮引用页签">
@@ -21,6 +23,13 @@ export function ContextChips({
           )}
           {tab.permission === "restricted" && (
             <StatusBadge tone="danger">不可读取</StatusBadge>
+          )}
+          {tab.permission === "required" && onRequestTabAccess && (
+            <button
+              type="button"
+              aria-label={`重新授权 ${tab.title}`}
+              onClick={() => void onRequestTabAccess(tab)}
+            >授权</button>
           )}
           <button
             type="button"

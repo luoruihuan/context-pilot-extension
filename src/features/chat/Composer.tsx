@@ -11,9 +11,12 @@ interface ComposerProps {
   selectedTabs: TabReference[];
   onTabsChange(tabs: TabReference[]): void;
   onSubmit(message: string, tabIds: number[]): void;
+  onRequestTabsPermission?(): Promise<boolean>;
+  onRequestTabAccess?(tab: TabReference): Promise<boolean>;
   disabled?: boolean;
   streaming?: boolean;
   onStop?(): void;
+  stopLabel?: string;
 }
 
 export function Composer({
@@ -21,12 +24,43 @@ export function Composer({
   selectedTabs,
   onTabsChange,
   onSubmit,
+  onRequestTabsPermission,
+  onRequestTabAccess,
   disabled = false,
   streaming = false,
   onStop,
+  stopLabel = "停止生成",
 }: ComposerProps) {
   const [value, setValue] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerError, setPickerError] = useState("");
+
+  async function openPicker() {
+    setPickerError("");
+    if (onRequestTabsPermission) {
+      try {
+        if (!(await onRequestTabsPermission())) {
+          setPickerError("需要页签权限才能显示已打开页签。请重试授权。");
+          return;
+        }
+      } catch {
+        setPickerError("无法请求页签权限。请重试授权。");
+        return;
+      }
+    }
+    setPickerOpen(true);
+  }
+
+  async function retryTabAccess(tab: TabReference): Promise<boolean> {
+    if (!onRequestTabAccess) return false;
+    const granted = await onRequestTabAccess(tab);
+    if (granted) {
+      onTabsChange(selectedTabs.map((item) =>
+        item.tabId === tab.tabId ? { ...item, permission: "granted" } : item
+      ));
+    }
+    return granted;
+  }
 
   function submit() {
     const message = value.trim();
@@ -54,11 +88,14 @@ export function Composer({
           tabs={tabs}
           selectedTabs={selectedTabs}
           onClose={() => setPickerOpen(false)}
+          onRequestTabAccess={onRequestTabAccess}
           onSelect={(tab) => onTabsChange([...selectedTabs, tab])}
         />
       )}
+      {pickerError && <p className={styles.permissionError} role="alert">{pickerError}</p>}
       <ContextChips
         tabs={selectedTabs}
+        onRequestTabAccess={retryTabAccess}
         onRemove={(tabId) =>
           onTabsChange(selectedTabs.filter((tab) => tab.tabId !== tabId))
         }
@@ -72,7 +109,7 @@ export function Composer({
           onChange={(event) => {
             const nextValue = event.target.value;
             setValue(nextValue);
-            if (nextValue.endsWith("@")) setPickerOpen(true);
+            if (nextValue.endsWith("@")) void openPicker();
           }}
           onKeyDown={handleKeyDown}
         />
@@ -81,13 +118,13 @@ export function Composer({
             label="引用页签"
             type="button"
             disabled={disabled}
-            onClick={() => setPickerOpen((open) => !open)}
+            onClick={() => pickerOpen ? setPickerOpen(false) : void openPicker()}
           >
             <AtSign size={17} />
           </IconButton>
           <span className={styles.modelHint}>默认模型</span>
           {streaming ? (
-            <IconButton label="停止生成" type="button" onClick={onStop}>
+            <IconButton label={stopLabel} type="button" onClick={onStop}>
               <Square size={15} fill="currentColor" />
             </IconButton>
           ) : (
