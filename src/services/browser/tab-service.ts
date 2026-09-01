@@ -56,7 +56,9 @@ export class TabService {
         }
 
         const isCurrent = tab.active === true;
-        const granted = isCurrent || (await this.permissions.hasPageOrigin(url.href));
+        const granted =
+          (await this.permissions.hasPageOrigin(url.href)) ||
+          (isCurrent && (await this.chrome.canAccessTab(tab.id)));
         return {
           tabId: tab.id,
           windowId: tab.windowId,
@@ -90,6 +92,7 @@ export class TabService {
   }
 
   async hasReadAccess(tab: chrome.tabs.Tab): Promise<boolean> {
-    return tab.active === true || this.permissions.hasPageOrigin(tab.url ?? "");
+    if (await this.permissions.hasPageOrigin(tab.url ?? "")) return true;
+    return tab.active === true && tab.id !== undefined && this.chrome.canAccessTab(tab.id);
   }
 }

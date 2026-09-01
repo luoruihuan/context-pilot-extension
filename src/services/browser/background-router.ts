@@ -90,7 +90,7 @@ export class BackgroundMessageRouter {
         case "context-pilot/request-tab-access": {
           const tab = await this.tabs.requireReadableTab(request.tabId);
           const granted =
-            tab.active === true ||
+            (await this.tabs.hasReadAccess(tab)) ||
             (await this.permissions.requestPageOrigin(tab.url ?? ""));
           return {
             type: "context-pilot/tab-access",

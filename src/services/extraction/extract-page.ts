@@ -54,12 +54,7 @@ function extractTables(document: Document): PageSnapshot["tables"] {
   });
 }
 
-function assertCurrent(input: ExtractPageInput, initialUrl: string): void {
-  const currentLocationHref = input.getCurrentLocationHref?.();
-  if (currentLocationHref !== undefined && currentLocationHref !== initialUrl) {
-    throw new Error("Page extraction became stale because the URL changed");
-  }
-
+function assertCurrentTask(input: ExtractPageInput): void {
   const currentTaskId = input.getCurrentTaskId?.();
   if (input.taskId && currentTaskId !== undefined && currentTaskId !== input.taskId) {
     throw new Error("Page extraction became stale because the task changed");
@@ -67,50 +62,71 @@ function assertCurrent(input: ExtractPageInput, initialUrl: string): void {
 }
 
 export async function extractPage(input: ExtractPageInput): Promise<PageSnapshot> {
-  const initialUrl = input.locationHref;
-  const protocol = new URL(initialUrl).protocol;
-  if (protocol !== "http:" && protocol !== "https:") {
-    throw new Error("Page extraction only supports HTTP and HTTPS URLs");
+  let extractionUrl = input.locationHref;
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const protocol = new URL(extractionUrl).protocol;
+    if (protocol !== "http:" && protocol !== "https:") {
+      throw new Error("Page extraction only supports HTTP and HTTPS URLs");
+    }
+
+    if (input.waitForStableDom !== false) {
+      await waitForStableDomImpl({ document: input.document });
+    }
+    assertCurrentTask(input);
+    const stableUrl = input.getCurrentLocationHref?.() ?? extractionUrl;
+    if (stableUrl !== extractionUrl) {
+      if (attempt === 0) {
+        extractionUrl = stableUrl;
+        continue;
+      }
+      throw new Error("Page extraction became stale because the URL kept changing");
+    }
+
+    const cleaned = cleanDocument(input.document);
+    const title = normalizedText(cleaned.querySelector("title")?.textContent);
+    const description = normalizedText(cleaned.querySelector("meta[name='description']")?.getAttribute("content"));
+    const headings = extractHeadings(cleaned);
+    const paragraphs = extractParagraphs(cleaned);
+    const lists = extractLists(cleaned);
+    const tables = extractTables(cleaned);
+    let readability: ReturnType<Readability["parse"]> = null;
+    try {
+      readability = new Readability(cleaned).parse();
+    } catch {
+      // A malformed document must not prevent the visible-text fallback.
+    }
+    const readableText = normalizedText(readability?.textContent);
+    const useReadability = readableText.length >= MIN_READABILITY_CONTENT_LENGTH;
+    const plainText = useReadability ? readableText : normalizedText(cleaned.body.textContent);
+    const extractionMethod = useReadability ? "readability" : "visible-text";
+
+    assertCurrentTask(input);
+    const completedUrl = input.getCurrentLocationHref?.() ?? extractionUrl;
+    if (completedUrl !== extractionUrl) {
+      if (attempt === 0) {
+        extractionUrl = completedUrl;
+        continue;
+      }
+      throw new Error("Page extraction became stale because the URL kept changing");
+    }
+    return {
+      sourceId: input.sourceId,
+      tabId: input.tabId,
+      title: title || normalizedText(readability?.title),
+      url: extractionUrl,
+      extractedAt: Date.now(),
+      routeVersion: extractionUrl,
+      ...(description ? { description } : {}),
+      headings,
+      paragraphs,
+      lists,
+      tables,
+      plainText,
+      extractionMethod,
+      truncated: false,
+    };
   }
 
-  if (input.waitForStableDom !== false) {
-    await waitForStableDomImpl({ document: input.document });
-  }
-  assertCurrent(input, initialUrl);
-
-  const cleaned = cleanDocument(input.document);
-  const title = normalizedText(cleaned.querySelector("title")?.textContent);
-  const description = normalizedText(cleaned.querySelector("meta[name='description']")?.getAttribute("content"));
-  const headings = extractHeadings(cleaned);
-  const paragraphs = extractParagraphs(cleaned);
-  const lists = extractLists(cleaned);
-  const tables = extractTables(cleaned);
-  let readability: ReturnType<Readability["parse"]> = null;
-  try {
-    readability = new Readability(cleaned).parse();
-  } catch {
-    // A malformed document must not prevent the visible-text fallback.
-  }
-  const readableText = normalizedText(readability?.textContent);
-  const useReadability = readableText.length >= MIN_READABILITY_CONTENT_LENGTH;
-  const plainText = useReadability ? readableText : normalizedText(cleaned.body.textContent);
-  const extractionMethod = useReadability ? "readability" : "visible-text";
-
-  assertCurrent(input, initialUrl);
-  return {
-    sourceId: input.sourceId,
-    tabId: input.tabId,
-    title: title || normalizedText(readability?.title),
-    url: initialUrl,
-    extractedAt: Date.now(),
-    routeVersion: initialUrl,
-    ...(description ? { description } : {}),
-    headings,
-    paragraphs,
-    lists,
-    tables,
-    plainText,
-    extractionMethod,
-    truncated: false,
-  };
+  throw new Error("Page extraction became stale");
 }

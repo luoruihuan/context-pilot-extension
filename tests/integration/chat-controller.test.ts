@@ -117,13 +117,24 @@ describe("ChatController", () => {
     await controller.send({ text: "第一次", tabIds: [1, 2], profileId: "p1" });
     await controller.send({ text: "第二次", tabIds: [1, 2], profileId: "p1" });
 
-    expect(extraction.extractTabs).toHaveBeenNthCalledWith(1, [1, 2]);
-    expect(extraction.extractTabs).toHaveBeenNthCalledWith(2, [1, 2]);
+    expect(extraction.extractTabs).toHaveBeenNthCalledWith(1, [1, 2], expect.any(AbortSignal));
+    expect(extraction.extractTabs).toHaveBeenNthCalledWith(2, [1, 2], expect.any(AbortSignal));
     expect(controller.getState()).toMatchObject({
       status: "complete",
       usage: { inputTokens: 12, outputTokens: 6 },
     });
     expect(controller.getState().turns.filter((turn) => turn.role === "assistant")).toHaveLength(2);
+  });
+
+  it("retries an assistant turn with its original question, tabs, and profile", async () => {
+    const { controller, extraction } = setup();
+    await controller.send({ text: "原问题", tabIds: [2, 1], profileId: "p1" });
+    const assistantId = controller.getState().turns.at(-1)!.id;
+
+    await controller.retry(assistantId);
+
+    expect(extraction.extractTabs).toHaveBeenNthCalledWith(2, [2, 1], expect.any(AbortSignal));
+    expect(controller.getState().turns.filter((turn) => turn.content === "原问题")).toHaveLength(2);
   });
 
   it("restores a persisted conversation as an idle chat that can continue", async () => {
@@ -288,6 +299,63 @@ describe("ChatController", () => {
     expect(provider.streamChat).not.toHaveBeenCalled();
   });
 
+  it("retries a send that was stopped before extraction completed", async () => {
+    const { controller, extraction, provider } = setup();
+    extraction.extractTabs
+      .mockImplementationOnce((_tabIds, signal) => new Promise((resolve) => {
+        signal?.addEventListener("abort", () => resolve([]), { once: true });
+      }))
+      .mockResolvedValueOnce([
+        { tabId: 1, status: "fulfilled", snapshot: snapshot(1, "Retried content") },
+      ]);
+
+    const firstSend = controller.send({ text: "停止后重试", tabIds: [1], profileId: "p1" });
+    await vi.waitFor(() => expect(controller.getState().status).toBe("extracting"));
+    const userTurnId = controller.getState().turns.at(-1)!.id;
+    controller.stop();
+    await firstSend;
+
+    await controller.retry(userTurnId);
+
+    expect(extraction.extractTabs).toHaveBeenCalledTimes(2);
+    expect(provider.streamChat).toHaveBeenCalledOnce();
+    expect(controller.getState().status).toBe("complete");
+  });
+
+  it("aborts a stopped extraction and lets a new send finish without the old run overwriting it", async () => {
+    let finishOldExtraction: ((value: TabExtractionResult[]) => void) | undefined;
+    const extraction = {
+      extractTabs: vi.fn((tabIds: number[], signal?: AbortSignal) => {
+        if (tabIds[0] === 1) {
+          return new Promise<TabExtractionResult[]>((resolve) => {
+            finishOldExtraction = resolve;
+            signal?.addEventListener("abort", () => resolve([]), { once: true });
+          });
+        }
+        return Promise.resolve([
+          { tabId: 2, status: "fulfilled" as const, snapshot: snapshot(2, "Fresh content") },
+        ]);
+      }),
+    };
+    const { controller, provider } = setup({ extraction });
+
+    const oldSend = controller.send({ text: "旧问题", tabIds: [1], profileId: "p1" });
+    await vi.waitFor(() => expect(controller.getState().status).toBe("extracting"));
+    controller.stop();
+    expect(extraction.extractTabs.mock.calls[0]?.[1]?.aborted).toBe(true);
+
+    const newSend = controller.send({ text: "新问题", tabIds: [2], profileId: "p1" });
+    finishOldExtraction?.([
+      { tabId: 1, status: "fulfilled", snapshot: snapshot(1, "Old content") },
+    ]);
+    await Promise.all([oldSend, newSend]);
+
+    expect(provider.streamChat).toHaveBeenCalledOnce();
+    expect(controller.getState().status).toBe("complete");
+    expect(controller.getState().turns.some((turn) => turn.content === "新问题")).toBe(true);
+    expect(JSON.stringify(controller.getState().turns)).not.toContain("Old content");
+  });
+
   it.each(["CONTEXT_TOO_LARGE", "NETWORK_ERROR"] as const)(
     "surfaces %s provider errors without discarding the conversation",
     async (code) => {
@@ -323,5 +391,21 @@ describe("ChatController", () => {
       error: { code: "MODEL_CONFIG_UNAVAILABLE" },
     });
     expect(extraction.extractTabs).not.toHaveBeenCalled();
+  });
+
+  it("keeps a generated answer visible when conversation persistence fails", async () => {
+    const { controller } = setup({
+      conversations: { save: vi.fn().mockRejectedValue(new Error("IndexedDB unavailable")) },
+    });
+
+    await expect(
+      controller.send({ text: "保存失败", tabIds: [1], profileId: "p1" }),
+    ).resolves.toBeUndefined();
+
+    expect(controller.getState()).toMatchObject({
+      status: "complete",
+      persistenceWarning: "回答已生成，但历史记录未保存。",
+    });
+    expect(controller.getState().turns.at(-1)?.content).toContain("比较结果");
   });
 });

@@ -30,13 +30,20 @@ export class ModelProfileRepository {
 
   async delete(id: string): Promise<void> {
     const profiles = await this.list();
-    const nextProfiles = profiles.filter((profile) => profile.id !== id);
+    const deletedDefault = profiles.find((profile) => profile.id === id)?.isDefault === true;
+    let nextProfiles = profiles.filter((profile) => profile.id !== id);
 
     if (nextProfiles.length === 0) {
       await this.storage.remove(MODEL_PROFILES_KEY);
       return;
     }
 
+    if (deletedDefault && !nextProfiles.some((profile) => profile.isDefault)) {
+      nextProfiles = nextProfiles.map((profile, index) => ({
+        ...profile,
+        isDefault: index === 0,
+      }));
+    }
     await this.storage.set({ [MODEL_PROFILES_KEY]: nextProfiles });
   }
 }

@@ -91,6 +91,10 @@ async function reloadPanelForActiveTab(panel: Page, active: Page): Promise<void>
 async function submit(panel: Page, question: string): Promise<void> {
   await panel.getByRole("textbox", { name: "向 AI 提问" }).fill(question);
   await panel.getByRole("button", { name: "发送消息" }).click();
+  const disclosure = panel.getByRole("dialog", { name: "发送前确认" });
+  if (await disclosure.isVisible().catch(() => false)) {
+    await disclosure.getByRole("button", { name: "同意并发送" }).click();
+  }
 }
 
 test("生产 manifest 下可选页签和模型 origin 权限拒绝均可重试", async ({ server }) => {
@@ -145,7 +149,13 @@ test("生产 manifest 下可选页签和模型 origin 权限拒绝均可重试",
 test("当前页问答、停止生成、历史恢复与设置 CRUD", async ({ context, panel, server }) => {
   const article = await openPage(context, `${server.origin}/article`);
   await reloadPanelForActiveTab(panel, article);
-  await submit(panel, "总结当前页");
+  await panel.getByRole("textbox", { name: "向 AI 提问" }).fill("总结当前页");
+  await panel.getByRole("button", { name: "发送消息" }).click();
+  const disclosure = panel.getByRole("dialog", { name: "发送前确认" });
+  await expect(disclosure).toContainText("页面内容、标题、URL 和你的问题会直接发送到你配置的 AI 服务商");
+  await expect(disclosure).toContainText("Context Pilot 开发者不接收这些内容");
+  expect(server.requests.filter((request) => request.path === "/v1/chat/completions")).toHaveLength(0);
+  await disclosure.getByRole("button", { name: "同意并发送" }).click();
   await expect(panel.getByText("当前页总结：北港部署三台潮汐涡轮机，年发电量预计 4.8 吉瓦时。", { exact: true })).toBeVisible();
   await expect(panel.getByText(/输入 84.*输出 22/)).toBeVisible();
   await panel.setViewportSize({ width: 1280, height: 800 });
@@ -169,12 +179,19 @@ test("当前页问答、停止生成、历史恢复与设置 CRUD", async ({ con
   await panel.getByRole("option", { name: /本地 OpenAI/ }).click();
   await panel.getByLabel("配置名称").fill("本地 OpenAI 已编辑");
   await panel.getByLabel("模型名称").fill("mock-model-v2");
+  await panel.getByLabel("最大输出 Token").fill("2048");
+  await panel.getByLabel("温度").fill("0.7");
+  await panel.getByLabel("主题").selectOption("dark");
+  await expect(panel.locator("html")).toHaveAttribute("data-theme", "dark");
   await panel.getByRole("button", { name: "保存模型" }).click();
   await panel.reload();
   await panel.getByRole("button", { name: "设置" }).click();
   await panel.getByRole("option", { name: /本地 OpenAI 已编辑/ }).click();
   await expect(panel.getByLabel("配置名称")).toHaveValue("本地 OpenAI 已编辑");
   await expect(panel.getByLabel("模型名称")).toHaveValue("mock-model-v2");
+  await expect(panel.getByLabel("最大输出 Token")).toHaveValue("2048");
+  await expect(panel.getByLabel("温度")).toHaveValue("0.7");
+  await expect(panel.getByLabel("主题")).toHaveValue("dark");
 
   await panel.getByRole("button", { name: "新建配置" }).click();
   await panel.getByLabel("配置名称").fill("本地 Anthropic");

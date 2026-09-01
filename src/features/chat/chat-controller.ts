@@ -19,7 +19,7 @@ import type {
 } from "@/shared/types/domain";
 
 interface ExtractionPort {
-  extractTabs(tabIds: number[]): Promise<TabExtractionResult[]>;
+  extractTabs(tabIds: number[], signal?: AbortSignal): Promise<TabExtractionResult[]>;
 }
 
 interface ConversationPort {
@@ -53,6 +53,7 @@ export class ChatController {
   private readonly listeners = new Set<Listener>();
   private readonly createId: () => string;
   private readonly now: () => number;
+  private readonly retryInputs = new Map<string, SendChatInput>();
   private abortController?: AbortController;
   private activeAssistantTurnId?: string;
   private conversationId?: string;
@@ -78,6 +79,7 @@ export class ChatController {
     this.runId += 1;
     this.conversationId = undefined;
     this.createdAt = undefined;
+    this.retryInputs.clear();
     this.dispatch({ type: "reset" });
   }
 
@@ -86,6 +88,7 @@ export class ChatController {
     this.runId += 1;
     this.conversationId = conversation.id;
     this.createdAt = conversation.createdAt;
+    this.retryInputs.clear();
     this.dispatch({ type: "restore", turns: conversation.turns });
   }
 
@@ -96,8 +99,18 @@ export class ChatController {
 
   stop(): void {
     if (this.state.status !== "extracting" && this.state.status !== "streaming") return;
+    const assistantTurnId = this.activeAssistantTurnId;
     this.abortController?.abort();
-    this.dispatch({ type: "stopped", turnId: this.activeAssistantTurnId });
+    this.abortController = undefined;
+    this.activeAssistantTurnId = undefined;
+    this.runId += 1;
+    this.dispatch({ type: "stopped", turnId: assistantTurnId });
+  }
+
+  async retry(assistantTurnId: string): Promise<void> {
+    const input = this.retryInputs.get(assistantTurnId);
+    if (!input) return;
+    await this.send({ ...input, tabIds: [...input.tabIds] });
   }
 
   async send(input: SendChatInput): Promise<void> {
@@ -109,6 +122,8 @@ export class ChatController {
       return;
     }
     const runId = ++this.runId;
+    const abortController = new AbortController();
+    this.abortController = abortController;
 
     const startedAt = this.now();
     const userTurn: ChatTurn = {
@@ -119,6 +134,7 @@ export class ChatController {
       createdAt: startedAt,
       status: "complete",
     };
+    this.retryInputs.set(userTurn.id, { ...input, text, tabIds: [...tabIds] });
     this.dispatch({ type: "extracting", userTurn });
 
     let profile: ModelProfile | undefined;
@@ -145,7 +161,7 @@ export class ChatController {
 
     let extractionResults: TabExtractionResult[];
     try {
-      extractionResults = await this.dependencies.extraction.extractTabs(tabIds);
+      extractionResults = await this.dependencies.extraction.extractTabs(tabIds, abortController.signal);
     } catch {
       if (!this.isCurrentRun(runId)) return;
       if (this.state.status === "stopped") {
@@ -189,8 +205,7 @@ export class ChatController {
       status: "streaming",
     };
     this.activeAssistantTurnId = assistantTurn.id;
-    const abortController = new AbortController();
-    this.abortController = abortController;
+    this.retryInputs.set(assistantTurn.id, { ...input, text, tabIds: [...tabIds] });
     this.dispatch({ type: "streaming", userTurn: sourcedUserTurn, assistantTurn, sourceErrors });
 
     const prompt = buildChatPrompt({ question: text, context: context.text });
@@ -278,12 +293,22 @@ export class ChatController {
     const timestamp = this.now();
     this.conversationId ??= this.createId();
     this.createdAt ??= timestamp;
-    await this.dependencies.conversations.save({
-      id: this.conversationId,
-      turns: this.state.turns,
-      createdAt: this.createdAt,
-      updatedAt: timestamp,
-    });
+    try {
+      await this.dependencies.conversations.save({
+        id: this.conversationId,
+        turns: this.state.turns,
+        createdAt: this.createdAt,
+        updatedAt: timestamp,
+      });
+    } catch {
+      const hasAssistantAnswer = this.state.turns.at(-1)?.role === "assistant";
+      this.dispatch({
+        type: "persistence-warning",
+        message: hasAssistantAnswer
+          ? "回答已生成，但历史记录未保存。"
+          : "当前对话未保存到历史记录。",
+      });
+    }
   }
 }
 

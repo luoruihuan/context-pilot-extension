@@ -1,4 +1,5 @@
 import type { PageSnapshot } from "@/shared/types/domain";
+import { EXTRACTION_METADATA_KEY } from "@/services/browser/extraction-metadata";
 import type {
   ExtensionRequest,
   ExtensionResponse,
@@ -15,6 +16,7 @@ export interface ChromeAdapter {
   queryTabs(query: chrome.tabs.QueryInfo): Promise<chrome.tabs.Tab[]>;
   getTab(tabId: number): Promise<chrome.tabs.Tab>;
   executeExtraction(tabId: number, taskId: string): Promise<unknown>;
+  canAccessTab(tabId: number): Promise<boolean>;
   sendMessage(request: ExtensionRequest): Promise<ExtensionResponse>;
 }
 
@@ -35,6 +37,18 @@ export class BrowserChromeAdapter implements ChromeAdapter {
     return chrome.tabs.get(tabId);
   }
 
+  async canAccessTab(tabId: number): Promise<boolean> {
+    try {
+      const results = await chrome.scripting.executeScript<[], boolean>({
+        target: { tabId },
+        func: () => true,
+      });
+      return results.some((item) => item.frameId === 0 && item.result === true);
+    } catch {
+      return false;
+    }
+  }
+
   async executeExtraction(tabId: number, taskId: string): Promise<unknown> {
     await chrome.scripting.executeScript({
       target: { tabId },
@@ -42,16 +56,24 @@ export class BrowserChromeAdapter implements ChromeAdapter {
         metadataKey: string;
         metadata: { tabId: number; taskId: string; sourceId: string };
       }) => {
+        const target = globalThis as unknown as Record<string, unknown>;
+        const existing = target[input.metadataKey];
+        const metadataMap =
+          typeof existing === "object" && existing !== null &&
+          !("taskId" in existing)
+            ? existing as Record<string, unknown>
+            : {};
+        metadataMap[input.metadata.taskId] = input.metadata;
         Object.defineProperty(globalThis, input.metadataKey, {
           configurable: true,
           enumerable: false,
-          value: input.metadata,
+          value: metadataMap,
           writable: true,
         });
       },
       args: [
         {
-          metadataKey: "__contextPilotExtraction",
+          metadataKey: EXTRACTION_METADATA_KEY,
           metadata: { tabId, taskId, sourceId: `T${tabId}` },
         },
       ],

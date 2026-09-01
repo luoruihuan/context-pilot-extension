@@ -66,6 +66,7 @@ export function buildContext(snapshots: PageSnapshot[], limits: ContextLimits = 
   let remaining = maxTotalCharacters;
   let truncated = snapshots.length > MAX_SOURCES;
   const chunks: string[] = [];
+  const includedSources: BuiltContext["sources"] = [];
 
   for (const snapshot of includedSnapshots) {
     const separatorLength = chunks.length > 0 ? 1 : 0;
@@ -78,6 +79,12 @@ export function buildContext(snapshots: PageSnapshot[], limits: ContextLimits = 
     const clipped = clipEscaped(prioritizedContent(snapshot), availableContent);
     const markup = sourceMarkup(snapshot, clipped.value);
     chunks.push(markup);
+    includedSources.push({
+      sourceId: snapshot.sourceId,
+      title: snapshot.title,
+      url: snapshot.url,
+      extractedAt: snapshot.extractedAt,
+    });
     remaining -= separatorLength + markup.length;
     truncated ||= clipped.truncated;
   }
@@ -85,7 +92,7 @@ export function buildContext(snapshots: PageSnapshot[], limits: ContextLimits = 
   const text = chunks.join("\n");
   return {
     text,
-    sources: includedSnapshots.map(({ sourceId, title, url, extractedAt }) => ({ sourceId, title, url, extractedAt })),
+    sources: includedSources,
     totalCharacters: text.length,
     truncated,
   };

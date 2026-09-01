@@ -36,7 +36,7 @@ describe("buildContext", () => {
     expect(result.truncated).toBe(false);
   });
 
-  it("deterministically clips ten pages to 60000 characters while retaining all source metadata", () => {
+  it("deterministically clips ten pages to 60000 characters and reports included sources", () => {
     const snapshots = Array.from({ length: 10 }, (_, index) =>
       snapshot(`T${index + 1}`, "x".repeat(20_000), index === 0 ? "Current selection" : undefined),
     );
@@ -47,9 +47,8 @@ describe("buildContext", () => {
     expect(first.text).toBe(second.text);
     expect(first.totalCharacters).toBeLessThanOrEqual(60_000);
     expect(first.truncated).toBe(true);
-    expect(first.sources).toHaveLength(10);
     expect(first.sources.map((source) => source.sourceId)).toEqual(
-      ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10"],
+      ["T1", "T2", "T3"],
     );
     expect(first.text).toContain("Current selection");
   });
@@ -115,5 +114,16 @@ describe("buildContext", () => {
 
     expect(result.totalCharacters).toBeLessThanOrEqual(300);
     expect(result.truncated).toBe(true);
+  });
+
+  it("returns metadata only for sources that entered the context chunks", () => {
+    const result = buildContext(
+      [snapshot("T1", "First"), snapshot("T2", "Second")],
+      { maxTotalCharacters: 180, maxPageCharacters: 180 },
+    );
+
+    expect(result.text).toContain('<source id="T1"');
+    expect(result.text).not.toContain('<source id="T2"');
+    expect(result.sources.map((source) => source.sourceId)).toEqual(["T1"]);
   });
 });

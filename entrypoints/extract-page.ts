@@ -1,7 +1,7 @@
 import { defineUnlistedScript } from "wxt/sandbox";
 
 import {
-  EXTRACTION_METADATA_KEY,
+  clearExtractionMetadata,
   readExtractionMetadata,
 } from "@/services/browser/extraction-metadata";
 import { extractPage } from "@/services/extraction";
@@ -22,6 +22,6 @@ export default defineUnlistedScript(async () => {
         readExtractionMetadata(target, metadata.taskId).taskId,
     });
   } finally {
-    delete target[EXTRACTION_METADATA_KEY];
+    clearExtractionMetadata(target, metadata.taskId);
   }
 });

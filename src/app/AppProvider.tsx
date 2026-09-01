@@ -4,6 +4,7 @@ import {
   useEffect,
   useMemo,
   useReducer,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -18,9 +19,12 @@ import { validateModelBaseUrl } from "@/services/llm/url-policy";
 import {
   ConversationRepository,
   ModelProfileRepository,
+  PreferencesRepository,
   type Conversation,
 } from "@/services/storage";
 import type { ModelProfile, TabReference } from "@/shared/types/domain";
+import type { Preferences } from "@/services/storage";
+import type { ThemePreference } from "@/services/storage";
 
 type View = "chat" | "history" | "settings";
 
@@ -46,6 +50,11 @@ interface AppState {
   testProfile(profile: ModelProfile): Promise<void>;
   requestTabsPermission(): Promise<boolean>;
   requestTabAccess(tab: TabReference): Promise<boolean>;
+  disclosureAccepted: boolean;
+  acceptDisclosure(): Promise<void>;
+  retry(turnId: string): Promise<void>;
+  theme: ThemePreference;
+  setTheme(theme: ThemePreference): Promise<void>;
 }
 
 const AppContext = createContext<AppState | null>(null);
@@ -57,19 +66,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [profiles, setProfiles] = useState<ModelProfile[]>([]);
   const [profile, setProfile] = useState<ModelProfile>();
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [preferences, setPreferences] = useState<Preferences>({ theme: "system", disclosureAccepted: false });
+  const preferencesRef = useRef(preferences);
   const services = useMemo(() => {
     const runtime = new RuntimeClient();
     const profiles = new ModelProfileRepository();
     const conversations = new ConversationRepository();
+    const preferences = new PreferencesRepository();
     const controller = new ChatController({
       extraction: runtime.extraction,
       getProfile: (profileId) => profiles.get(profileId),
       getProvider,
       conversations,
     });
-    return { runtime, profiles, conversations, controller };
+    return { runtime, profiles, conversations, preferences, controller };
   }, []);
   const [chat, setChat] = useState<ChatState>(services.controller.getState());
+
+  useEffect(() => {
+    preferencesRef.current = preferences;
+    document.documentElement.dataset.theme = preferences.theme;
+  }, [preferences]);
 
   async function requireOriginPermission(baseUrl: string): Promise<void> {
     validateModelBaseUrl(baseUrl);
@@ -84,11 +101,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let active = true;
     const unsubscribe = services.controller.subscribe(setChat);
-    void Promise.all([services.runtime.listTabs(), services.profiles.list()]).then(
-      ([nextTabs, profiles]) => {
+    void Promise.all([services.runtime.listTabs(), services.profiles.list(), services.preferences.get()]).then(
+      ([nextTabs, profiles, nextPreferences]) => {
         if (!active) return;
         setTabs(nextTabs);
         setProfiles(profiles);
+        preferencesRef.current = nextPreferences;
+        setPreferences(nextPreferences);
         const defaultProfile = profiles.find((item) => item.isDefault) ?? profiles[0];
         setProfile(defaultProfile);
         const currentTab = nextTabs.find((tab) => tab.isCurrent && tab.permission === "granted");
@@ -137,6 +156,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await getProvider(nextProfile.provider).testConnection(nextProfile, new AbortController().signal);
   }
 
+  async function acceptDisclosure(): Promise<void> {
+    const nextPreferences = { ...preferences, disclosureAccepted: true };
+    await services.preferences.save(nextPreferences);
+    preferencesRef.current = nextPreferences;
+    setPreferences(nextPreferences);
+  }
+
+  async function setTheme(theme: ThemePreference): Promise<void> {
+    const nextPreferences = { ...preferences, theme };
+    await services.preferences.save(nextPreferences);
+    preferencesRef.current = nextPreferences;
+    setPreferences(nextPreferences);
+  }
+
   async function refreshConversations(): Promise<void> {
     const items = await services.conversations.list();
     setConversations(items.sort((left, right) => right.updatedAt - left.updatedAt));
@@ -168,9 +201,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       selectedTabs: context.selectedTabs,
       setSelectedTabs: (tabs) => dispatch({ type: "replace", tabs }),
       chat,
-      send: (message, tabIds) => {
-        if (!profile) return Promise.resolve();
-        return services.controller.send({ text: message, tabIds: [...tabIds], profileId: profile.id });
+      send: async (message, tabIds) => {
+        if (!profile || !preferencesRef.current.disclosureAccepted) return;
+        await services.controller.send({ text: message, tabIds: [...tabIds], profileId: profile.id });
       },
       stop: () => services.controller.stop(),
       resetChat: () => services.controller.reset(),
@@ -186,8 +219,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       testProfile,
       requestTabsPermission,
       requestTabAccess,
+      disclosureAccepted: preferences.disclosureAccepted,
+      acceptDisclosure,
+      retry: (turnId) => services.controller.retry(turnId),
+      theme: preferences.theme,
+      setTheme,
     }),
-    [chat, context.selectedTabs, conversations, profile, profiles, services, tabs, view],
+    [chat, context.selectedTabs, conversations, preferences, profile, profiles, services, tabs, view],
   );
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

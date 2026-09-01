@@ -117,4 +117,60 @@ describe("ModelProfileForm", () => {
     await user.click(screen.getByRole("button", { name: "删除配置" }));
     expect(onDelete).toHaveBeenCalledWith("p1");
   });
+
+  it("edits advanced generation parameters with range validation", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn();
+    render(<ModelProfileForm onSave={onSave} onTest={vi.fn()} />);
+
+    await user.type(screen.getByLabelText("配置名称"), "Advanced");
+    await user.type(screen.getByLabelText("API 地址"), "https://api.example.com/v1");
+    await user.type(screen.getByLabelText("API Key"), "key");
+    await user.type(screen.getByLabelText("模型名称"), "model");
+    await user.clear(screen.getByLabelText("最大输出 Token"));
+    await user.type(screen.getByLabelText("最大输出 Token"), "2048");
+    await user.clear(screen.getByLabelText("温度"));
+    await user.type(screen.getByLabelText("温度"), "0.7");
+    await user.click(screen.getByRole("button", { name: "保存模型" }));
+
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ maxOutputTokens: 2048, temperature: 0.7 }));
+  });
+
+  it("rejects advanced generation parameters outside supported ranges", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn();
+    render(<ModelProfileForm onSave={onSave} onTest={vi.fn()} />);
+
+    await user.type(screen.getByLabelText("配置名称"), "Invalid");
+    await user.type(screen.getByLabelText("API 地址"), "https://api.example.com/v1");
+    await user.type(screen.getByLabelText("API Key"), "key");
+    await user.type(screen.getByLabelText("模型名称"), "model");
+    await user.clear(screen.getByLabelText("最大输出 Token"));
+    await user.type(screen.getByLabelText("最大输出 Token"), "0");
+    await user.clear(screen.getByLabelText("温度"));
+    await user.type(screen.getByLabelText("温度"), "3");
+    await user.click(screen.getByRole("button", { name: "保存模型" }));
+
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent("输出 Token");
+  });
+
+  it("persists the selected theme through SettingsView", async () => {
+    const user = userEvent.setup();
+    const onThemeChange = vi.fn().mockResolvedValue(undefined);
+    render(
+      <SettingsView
+        profiles={[profile("p1", "Primary")]}
+        profile={profile("p1", "Primary")}
+        theme="system"
+        onThemeChange={onThemeChange}
+        onBack={vi.fn()}
+        onSave={vi.fn()}
+        onTest={vi.fn()}
+      />,
+    );
+
+    await user.selectOptions(screen.getByLabelText("主题"), "dark");
+    expect(onThemeChange).toHaveBeenCalledWith("dark");
+  });
 });

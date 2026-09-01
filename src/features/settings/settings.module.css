@@ -4,6 +4,8 @@
 .settings header p { color: var(--cp-color-text-muted); font-size: 12px; margin: 2px 0 0; }
 .form { display: grid; gap: 14px; margin: 0 auto; max-width: 520px; }
 .profileManager { display: grid; gap: 8px; margin: 0 auto 18px; max-width: 520px; }
+.preferenceManager { margin: 0 auto 18px; max-width: 520px; }
+.advancedFields { display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .profileToolbar { align-items: center; display: flex; justify-content: space-between; }
 .profileToolbar button, .deleteButton { align-items: center; border-radius: var(--cp-button-radius); display: inline-flex; gap: 6px; min-height: 32px; padding: 0 9px; }
 .profileList { display: grid; gap: 4px; }
@@ -24,3 +26,4 @@
 .spin { animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
+@media (max-width: 380px) { .advancedFields { grid-template-columns: 1fr; } }

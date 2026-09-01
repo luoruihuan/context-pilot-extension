@@ -13,7 +13,7 @@ type SendMessage = (request: ExtensionRequest) => Promise<ExtensionResponse>;
 export class ExtractionClient {
   constructor(private readonly sendMessage: SendMessage) {}
 
-  async extractTabs(tabIds: number[]): Promise<TabExtractionResult[]> {
+  async extractTabs(tabIds: number[], signal?: AbortSignal): Promise<TabExtractionResult[]> {
     if (
       tabIds.length === 0 ||
       tabIds.length > 10 ||
@@ -25,12 +25,14 @@ export class ExtractionClient {
 
     const settled = await Promise.allSettled(
       tabIds.map(async (tabId) => {
+        if (signal?.aborted) throw Object.assign(new Error("Extraction stopped"), { code: "ABORTED" });
         const taskId = crypto.randomUUID();
         const response = await this.sendMessage({
           type: "context-pilot/extract-page",
           tabId,
           taskId,
         });
+        if (signal?.aborted) throw Object.assign(new Error("Extraction stopped"), { code: "ABORTED" });
         if (response.type === "context-pilot/page-snapshot") {
           return response.snapshot;
         }

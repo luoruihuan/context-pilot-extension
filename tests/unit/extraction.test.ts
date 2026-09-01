@@ -84,7 +84,7 @@ describe("extractPage", () => {
     expect(snapshot.plainText).not.toContain("Navigation item");
   });
 
-  it("rejects an extraction whose task or URL became stale", async () => {
+  it("rejects an extraction whose task became stale", async () => {
     const document = page(fixture("article.html"));
 
     await expect(
@@ -99,16 +99,32 @@ describe("extractPage", () => {
       }),
     ).rejects.toThrow("stale");
 
-    await expect(
-      extractPage({
-        tabId: 7,
-        sourceId: "T1",
-        document,
-        locationHref: "https://example.com/a",
-        getCurrentLocationHref: () => "https://example.com/b",
-        waitForStableDom: false,
-      }),
-    ).rejects.toThrow("stale");
+  });
+
+  it("restarts once when an SPA route changes during the stability window", async () => {
+    vi.useFakeTimers();
+    const document = page("<html><head><title>Old route</title></head><body><main><p>Old content</p></main></body></html>");
+    let currentUrl = "https://example.com/old";
+
+    const extracting = extractPage({
+      tabId: 7,
+      sourceId: "T1",
+      document,
+      locationHref: currentUrl,
+      getCurrentLocationHref: () => currentUrl,
+    });
+    await vi.advanceTimersByTimeAsync(300);
+    currentUrl = "https://example.com/new";
+    document.title = "New route";
+    document.querySelector("p")!.textContent = "Fresh SPA content";
+    await vi.advanceTimersByTimeAsync(800);
+
+    await expect(extracting).resolves.toMatchObject({
+      url: "https://example.com/new",
+      routeVersion: "https://example.com/new",
+      title: "New route",
+      plainText: expect.stringContaining("Fresh SPA content"),
+    });
   });
 });
 

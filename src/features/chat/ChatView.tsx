@@ -1,4 +1,5 @@
 import { BarChart3, FileSearch, ListChecks, Rows3 } from "lucide-react";
+import { useState } from "react";
 import type { ChatTurn, TabReference } from "@/shared/types/domain";
 import { Composer } from "./Composer";
 import { MessageList } from "./MessageList";
@@ -20,6 +21,10 @@ interface ChatViewProps {
   onSubmit(message: string, tabIds: number[]): void;
   onRequestTabsPermission?(): Promise<boolean>;
   onRequestTabAccess?(tab: TabReference): Promise<boolean>;
+  disclosureAccepted?: boolean;
+  onAcceptDisclosure?(): Promise<void>;
+  onRetry?(turnId: string): void;
+  persistenceWarning?: string;
   configured: boolean;
   onOpenSettings(): void;
   streaming?: boolean;
@@ -32,8 +37,12 @@ interface ChatViewProps {
 }
 
 export function ChatView(props: ChatViewProps) {
+  const [pendingSubmit, setPendingSubmit] = useState<{ message: string; tabIds: number[] }>();
+  const [acceptingDisclosure, setAcceptingDisclosure] = useState(false);
   const currentTurnStoppedBeforeResponse =
     props.status === "stopped" && props.turns.at(-1)?.role === "user";
+  const currentTurnFailedBeforeResponse =
+    props.status === "error" && props.turns.at(-1)?.role === "user";
   const selectedTabs = props.selectedTabs.map((tab) => {
     const error = props.sourceErrors?.find((item) => item.tabId === tab.tabId);
     if (error?.code === "PERMISSION_REQUIRED") return { ...tab, permission: "required" as const };
@@ -41,11 +50,54 @@ export function ChatView(props: ChatViewProps) {
     return tab;
   });
 
+  function submitWithDisclosure(message: string, tabIds: number[]): void {
+    if (props.disclosureAccepted === false) {
+      setPendingSubmit({ message, tabIds: [...tabIds] });
+      return;
+    }
+    props.onSubmit(message, [...tabIds]);
+  }
+
+  async function acceptDisclosure(): Promise<void> {
+    if (!pendingSubmit || acceptingDisclosure) return;
+    setAcceptingDisclosure(true);
+    try {
+      await props.onAcceptDisclosure?.();
+      const next = pendingSubmit;
+      setPendingSubmit(undefined);
+      props.onSubmit(next.message, [...next.tabIds]);
+    } finally {
+      setAcceptingDisclosure(false);
+    }
+  }
+
   return (
     <section className={styles.chatView} aria-label="AI 对话">
+      {pendingSubmit && (
+        <div className={styles.disclosureBackdrop} role="presentation">
+          <div className={styles.disclosureDialog} role="dialog" aria-modal="true" aria-labelledby="disclosure-title" aria-describedby="disclosure-copy">
+            <h2 id="disclosure-title">发送前确认</h2>
+            <p id="disclosure-copy">发送问题时，所选页签的页面内容、标题、URL 和你的问题会直接发送到你配置的 AI 服务商。Context Pilot 开发者不接收这些内容。数据处理仍受该 AI 服务商条款和隐私政策约束。</p>
+            <div className={styles.disclosureActions}>
+              <button type="button" onClick={() => setPendingSubmit(undefined)} disabled={acceptingDisclosure}>暂不发送</button>
+              <button type="button" onClick={() => void acceptDisclosure()} disabled={acceptingDisclosure}>{acceptingDisclosure ? "确认中" : "同意并发送"}</button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className={styles.scrollRegion}>
         {props.errorMessage && (
-          <div className={styles.chatError} role="alert">{props.errorMessage}</div>
+          <div className={styles.chatError} role="alert">
+            <span>{props.errorMessage}</span>
+            {currentTurnFailedBeforeResponse && (
+              <button type="button" onClick={() => props.onRetry?.(props.turns.at(-1)!.id)} disabled={!props.onRetry}>
+                重试请求
+              </button>
+            )}
+          </div>
+        )}
+        {props.persistenceWarning && (
+          <div className={styles.persistenceWarning} role="alert">{props.persistenceWarning}</div>
         )}
         {props.sourceErrors && props.sourceErrors.length > 0 && (
           <div className={styles.sourceWarning} role="status">
@@ -61,11 +113,14 @@ export function ChatView(props: ChatViewProps) {
         )}
         {currentTurnStoppedBeforeResponse && (
           <div className={styles.readingStatus} role="status" aria-live="polite">
-            已停止读取
+            <span>已停止读取</span>
+            <button type="button" onClick={() => props.onRetry?.(props.turns.at(-1)!.id)} disabled={!props.onRetry}>
+              重试读取
+            </button>
           </div>
         )}
         {props.turns.length > 0 ? (
-          <MessageList turns={props.turns} />
+          <MessageList turns={props.turns} onRetry={props.onRetry} />
         ) : (
           <div className={styles.welcome}>
             <div className={styles.wordmark}>CP</div>
@@ -76,7 +131,7 @@ export function ChatView(props: ChatViewProps) {
                 <button
                   type="button"
                   key={label}
-                  onClick={() => props.onSubmit(label, props.selectedTabs.map((tab) => tab.tabId))}
+              onClick={() => submitWithDisclosure(label, props.selectedTabs.map((tab) => tab.tabId))}
                 >
                   <Icon size={16} />
                   {label}
@@ -100,7 +155,7 @@ export function ChatView(props: ChatViewProps) {
         tabs={props.tabs}
         selectedTabs={selectedTabs}
         onTabsChange={props.onTabsChange}
-        onSubmit={props.onSubmit}
+        onSubmit={submitWithDisclosure}
         onRequestTabsPermission={props.onRequestTabsPermission}
         onRequestTabAccess={props.onRequestTabAccess}
         disabled={!props.configured}

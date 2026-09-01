@@ -26,6 +26,7 @@ export interface ChatState {
   sourceErrors: SourceError[];
   usage?: ChatUsage;
   error?: ProviderError | { code: string; message: string };
+  persistenceWarning?: string;
 }
 
 export const initialChatState: ChatState = {
@@ -43,7 +44,8 @@ export type ChatAction =
   | { type: "stopped"; turnId?: string }
   | { type: "error"; error: ChatState["error"]; turnId?: string; sourceErrors?: SourceError[] }
   | { type: "restore"; turns: ChatTurn[] }
-  | { type: "reset" };
+  | { type: "reset" }
+  | { type: "persistence-warning"; message: string };
 
 function updateTurn(
   turns: ChatTurn[],
@@ -120,5 +122,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       };
     case "reset":
       return initialChatState;
+    case "persistence-warning":
+      return { ...state, persistenceWarning: action.message };
   }
 }

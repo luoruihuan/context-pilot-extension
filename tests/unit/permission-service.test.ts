@@ -14,6 +14,7 @@ function adapter(): ChromeAdapter {
     getTab: vi.fn(),
     executeExtraction: vi.fn(),
     sendMessage: vi.fn(),
+    canAccessTab: vi.fn().mockResolvedValue(false),
   };
 }
 

@@ -36,10 +36,14 @@ function Workspace() {
           onRequestTabsPermission={app.requestTabsPermission}
           onRequestTabAccess={app.requestTabAccess}
           onSubmit={(message, tabIds) => void app.send(message, tabIds)}
+          disclosureAccepted={app.disclosureAccepted}
+          onAcceptDisclosure={app.acceptDisclosure}
+          onRetry={(turnId) => void app.retry(turnId)}
           configured={Boolean(app.profile)}
           onOpenSettings={() => app.setView("settings")}
           streaming={app.chat.status === "extracting" || app.chat.status === "streaming"}
           errorMessage={app.chat.error?.message}
+          persistenceWarning={app.chat.persistenceWarning}
           sourceErrors={app.chat.sourceErrors}
           usage={app.chat.usage}
           onStop={app.stop}
@@ -60,7 +64,7 @@ function Workspace() {
           onDelete={(id) => void app.deleteConversation(id)}
         />
       )}
-      {app.view === "settings" && <SettingsView profiles={app.profiles} profile={app.profile} onBack={() => app.setView("chat")} onSave={app.saveProfile} onTest={app.testProfile} onSelect={app.selectProfile} onCreate={app.createProfile} onDelete={app.deleteProfile} />}
+      {app.view === "settings" && <SettingsView profiles={app.profiles} profile={app.profile} theme={app.theme} onThemeChange={app.setTheme} onBack={() => app.setView("chat")} onSave={app.saveProfile} onTest={app.testProfile} onSelect={app.selectProfile} onCreate={app.createProfile} onDelete={app.deleteProfile} />}
     </main>
   );
 }

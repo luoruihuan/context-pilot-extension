@@ -90,6 +90,19 @@ describe("ModelProfileRepository", () => {
 
     await expect(repository.get("profile-1")).resolves.toBeUndefined();
   });
+
+  it("promotes a remaining profile when deleting the default", async () => {
+    createChromeStorage();
+    const repository = new ModelProfileRepository();
+    await repository.save(profile({ id: "default", isDefault: true }));
+    await repository.save(profile({ id: "backup", isDefault: false }));
+
+    await repository.delete("default");
+
+    await expect(repository.list()).resolves.toMatchObject([
+      { id: "backup", isDefault: true },
+    ]);
+  });
 });
 
 describe("PreferencesRepository", () => {
