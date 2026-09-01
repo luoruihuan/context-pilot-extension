@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { JSDOM } from "jsdom";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { Readability } from "@mozilla/readability";
 import { extractPage, waitForStableDom } from "@/services/extraction";
 
 const fixturesPath = join(process.cwd(), "tests/fixtures/pages");
@@ -62,6 +63,25 @@ describe("extractPage", () => {
     expect(snapshot.plainText).toContain("Visible fallback paragraph.");
     expect(snapshot.plainText).not.toContain("Navigation item");
     expect(snapshot.plainText).not.toContain("Invisible styled content");
+  });
+
+  it("falls back to cleaned visible text when Readability throws", async () => {
+    const parse = vi.spyOn(Readability.prototype, "parse").mockImplementation(() => {
+      throw new Error("parse failed");
+    });
+
+    const snapshot = await extractPage({
+      tabId: 7,
+      sourceId: "T1",
+      document: page(fixture("noisy-page.html")),
+      locationHref: "https://example.com/a",
+      waitForStableDom: false,
+    });
+
+    expect(parse).toHaveBeenCalledOnce();
+    expect(snapshot.extractionMethod).toBe("visible-text");
+    expect(snapshot.plainText).toContain("Visible fallback paragraph.");
+    expect(snapshot.plainText).not.toContain("Navigation item");
   });
 
   it("rejects an extraction whose task or URL became stale", async () => {

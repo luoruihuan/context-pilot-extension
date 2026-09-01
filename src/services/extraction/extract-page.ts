@@ -85,7 +85,12 @@ export async function extractPage(input: ExtractPageInput): Promise<PageSnapshot
   const paragraphs = extractParagraphs(cleaned);
   const lists = extractLists(cleaned);
   const tables = extractTables(cleaned);
-  const readability = new Readability(cleaned).parse();
+  let readability: ReturnType<Readability["parse"]> = null;
+  try {
+    readability = new Readability(cleaned).parse();
+  } catch {
+    // A malformed document must not prevent the visible-text fallback.
+  }
   const readableText = normalizedText(readability?.textContent);
   const useReadability = readableText.length >= MIN_READABILITY_CONTENT_LENGTH;
   const plainText = useReadability ? readableText : normalizedText(cleaned.body.textContent);

@@ -14,14 +14,37 @@ export interface BuiltContext {
 
 const DEFAULT_MAX_TOTAL_CHARACTERS = 60_000;
 const DEFAULT_MAX_PAGE_CHARACTERS = 20_000;
+const MAX_SOURCES = 10;
 
-function clip(value: string, limit: number): { value: string; truncated: boolean } {
-  if (value.length <= limit) return { value, truncated: false };
-  return { value: value.slice(0, limit), truncated: true };
+function clipEscaped(value: string, limit: number): { value: string; truncated: boolean } {
+  let escapedLength = 0;
+  let endIndex = 0;
+
+  for (const character of value) {
+    const escapedCharacter = escapeXml(character);
+    if (escapedLength + escapedCharacter.length > limit) break;
+    escapedLength += escapedCharacter.length;
+    endIndex += character.length;
+  }
+
+  return { value: value.slice(0, endIndex), truncated: endIndex < value.length };
 }
 
 function sourceMarkup(snapshot: PageSnapshot, content: string): string {
-  return `<source id="${snapshot.sourceId}" trust="untrusted-web-content">\n<title>${snapshot.title}</title>\n<url>${snapshot.url}</url>\n<content>${content}</content>\n</source>`;
+  return `<source id="${escapeXml(snapshot.sourceId)}" trust="untrusted-web-content">\n<title>${escapeXml(snapshot.title)}</title>\n<url>${escapeXml(snapshot.url)}</url>\n<content>${escapeXml(content)}</content>\n</source>`;
+}
+
+function escapeXml(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => {
+    const entities: Record<string, string> = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&apos;",
+    };
+    return entities[character];
+  });
 }
 
 function prioritizedContent(snapshot: PageSnapshot): string {
@@ -37,13 +60,14 @@ function prioritizedContent(snapshot: PageSnapshot): string {
 }
 
 export function buildContext(snapshots: PageSnapshot[], limits: ContextLimits = {}): BuiltContext {
+  const includedSnapshots = snapshots.slice(0, MAX_SOURCES);
   const maxTotalCharacters = limits.maxTotalCharacters ?? DEFAULT_MAX_TOTAL_CHARACTERS;
   const maxPageCharacters = limits.maxPageCharacters ?? DEFAULT_MAX_PAGE_CHARACTERS;
   let remaining = maxTotalCharacters;
-  let truncated = false;
+  let truncated = snapshots.length > MAX_SOURCES;
   const chunks: string[] = [];
 
-  for (const snapshot of snapshots) {
+  for (const snapshot of includedSnapshots) {
     const separatorLength = chunks.length > 0 ? 1 : 0;
     const frame = sourceMarkup(snapshot, "");
     if (remaining < separatorLength + frame.length) {
@@ -51,7 +75,7 @@ export function buildContext(snapshots: PageSnapshot[], limits: ContextLimits = 
       break;
     }
     const availableContent = Math.max(0, Math.min(maxPageCharacters, remaining - frame.length - separatorLength));
-    const clipped = clip(prioritizedContent(snapshot), availableContent);
+    const clipped = clipEscaped(prioritizedContent(snapshot), availableContent);
     const markup = sourceMarkup(snapshot, clipped.value);
     chunks.push(markup);
     remaining -= separatorLength + markup.length;
@@ -61,7 +85,7 @@ export function buildContext(snapshots: PageSnapshot[], limits: ContextLimits = 
   const text = chunks.join("\n");
   return {
     text,
-    sources: snapshots.map(({ sourceId, title, url, extractedAt }) => ({ sourceId, title, url, extractedAt })),
+    sources: includedSnapshots.map(({ sourceId, title, url, extractedAt }) => ({ sourceId, title, url, extractedAt })),
     totalCharacters: text.length,
     truncated,
   };
