@@ -21,6 +21,8 @@ export interface ChromeAdapter {
 }
 
 export class BrowserChromeAdapter implements ChromeAdapter {
+  private readonly extractionQueues = new Map<number, Promise<void>>();
+
   containsPermissions(request: PermissionRequest): Promise<boolean> {
     return chrome.permissions.contains(request);
   }
@@ -50,6 +52,26 @@ export class BrowserChromeAdapter implements ChromeAdapter {
   }
 
   async executeExtraction(tabId: number, taskId: string): Promise<unknown> {
+    const previous = this.extractionQueues.get(tabId) ?? Promise.resolve();
+    let releaseQueue!: () => void;
+    const current = new Promise<void>((resolve) => {
+      releaseQueue = resolve;
+    });
+    const queueTail = previous.catch(() => undefined).then(() => current);
+    this.extractionQueues.set(tabId, queueTail);
+
+    await previous.catch(() => undefined);
+    try {
+      return await this.executeExtractionTask(tabId, taskId);
+    } finally {
+      releaseQueue();
+      if (this.extractionQueues.get(tabId) === queueTail) {
+        this.extractionQueues.delete(tabId);
+      }
+    }
+  }
+
+  private async executeExtractionTask(tabId: number, taskId: string): Promise<unknown> {
     await chrome.scripting.executeScript({
       target: { tabId },
       func: (input: {
@@ -78,10 +100,33 @@ export class BrowserChromeAdapter implements ChromeAdapter {
         },
       ],
     });
-    const results = await chrome.scripting.executeScript<[], PageSnapshot>({
-      target: { tabId },
-      files: ["extract-page.js"],
-    });
+    let results: chrome.scripting.InjectionResult<PageSnapshot>[];
+    try {
+      results = await chrome.scripting.executeScript<[], PageSnapshot>({
+        target: { tabId },
+        files: ["extract-page.js"],
+      });
+    } catch (caught) {
+      await chrome.scripting.executeScript({
+        target: { tabId },
+        func: (input: { metadataKey: string; taskId: string }) => {
+          const target = globalThis as unknown as Record<string, unknown>;
+          const existing = target[input.metadataKey];
+          if (typeof existing !== "object" || existing === null) return;
+          if ("taskId" in existing) {
+            if ((existing as { taskId?: unknown }).taskId === input.taskId) {
+              delete target[input.metadataKey];
+            }
+            return;
+          }
+          const metadataMap = existing as Record<string, unknown>;
+          delete metadataMap[input.taskId];
+          if (Object.keys(metadataMap).length === 0) delete target[input.metadataKey];
+        },
+        args: [{ metadataKey: EXTRACTION_METADATA_KEY, taskId }],
+      }).catch(() => undefined);
+      throw caught;
+    }
     const result = results.find((item) => item.frameId === 0)?.result;
 
     if (!result) {

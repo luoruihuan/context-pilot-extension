@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ChatView } from "@/features/chat/ChatView";
+import { MessageList } from "@/features/chat/MessageList";
 import type { TabReference } from "@/shared/types/domain";
 
 const tabs: TabReference[] = [
@@ -280,6 +281,21 @@ describe("multi-tab chat", () => {
 
     expect(writeText).toHaveBeenCalledWith("完整回答");
     expect(onRetry).toHaveBeenCalledWith("assistant-stopped");
+  });
+
+  it("keeps copy available but hides retry for restored messages without retry metadata", () => {
+    render(
+      <MessageList
+        turns={[
+          { id: "restored-answer", role: "assistant", content: "历史回答", sources: [], createdAt: 1, status: "complete" },
+        ]}
+        onRetry={vi.fn()}
+        canRetry={() => false}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "复制回答：历史回答" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "重试回答：历史回答" })).not.toBeInTheDocument();
   });
 
   it("shows a friendly copy error when Clipboard API is unavailable", async () => {

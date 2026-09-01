@@ -39,6 +39,7 @@ function Workspace() {
           disclosureAccepted={app.disclosureAccepted}
           onAcceptDisclosure={app.acceptDisclosure}
           onRetry={(turnId) => void app.retry(turnId)}
+          canRetry={app.canRetry}
           configured={Boolean(app.profile)}
           onOpenSettings={() => app.setView("settings")}
           streaming={app.chat.status === "extracting" || app.chat.status === "streaming"}

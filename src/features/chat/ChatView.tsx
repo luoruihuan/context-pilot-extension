@@ -24,6 +24,7 @@ interface ChatViewProps {
   disclosureAccepted?: boolean;
   onAcceptDisclosure?(): Promise<void>;
   onRetry?(turnId: string): void;
+  canRetry?(turnId: string): boolean;
   persistenceWarning?: string;
   configured: boolean;
   onOpenSettings(): void;
@@ -120,7 +121,7 @@ export function ChatView(props: ChatViewProps) {
           </div>
         )}
         {props.turns.length > 0 ? (
-          <MessageList turns={props.turns} onRetry={props.onRetry} />
+          <MessageList turns={props.turns} onRetry={props.onRetry} canRetry={props.canRetry} />
         ) : (
           <div className={styles.welcome}>
             <div className={styles.wordmark}>CP</div>

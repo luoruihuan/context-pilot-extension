@@ -105,6 +105,11 @@ export class ChatController {
     this.activeAssistantTurnId = undefined;
     this.runId += 1;
     this.dispatch({ type: "stopped", turnId: assistantTurnId });
+    void this.persist(this.runId);
+  }
+
+  canRetry(turnId: string): boolean {
+    return this.retryInputs.has(turnId);
   }
 
   async retry(assistantTurnId: string): Promise<void> {
@@ -288,7 +293,7 @@ export class ChatController {
     this.listeners.forEach((listener) => listener(this.state));
   }
 
-  private async persist(): Promise<void> {
+  private async persist(expectedRunId = this.runId): Promise<void> {
     if (this.state.turns.length === 0) return;
     const timestamp = this.now();
     this.conversationId ??= this.createId();
@@ -301,6 +306,7 @@ export class ChatController {
         updatedAt: timestamp,
       });
     } catch {
+      if (!this.isCurrentRun(expectedRunId)) return;
       const hasAssistantAnswer = this.state.turns.at(-1)?.role === "assistant";
       this.dispatch({
         type: "persistence-warning",

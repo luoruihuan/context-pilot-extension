@@ -389,17 +389,16 @@ describe("Browser extraction metadata", () => {
     expect(() => readExtractionMetadata(target)).toThrow();
   });
 
-  it("keeps an older task isolated when a newer adapter extraction finishes first", async () => {
+  it("serializes same-tab extraction so injected scripts keep their task order", async () => {
     const {
       clearExtractionMetadata,
       EXTRACTION_METADATA_KEY,
       readExtractionMetadata,
     } = await import("@/services/browser/extraction-metadata");
     const target = globalThis as unknown as Record<string, unknown>;
-    let releaseOlderTask: (() => void) | undefined;
-    const olderTaskPaused = new Promise<void>((resolve) => {
-      releaseOlderTask = resolve;
-    });
+    let activeFileInjections = 0;
+    let maxActiveFileInjections = 0;
+    const claimedTaskIds: string[] = [];
     type MetadataInput = {
       metadataKey: string;
       metadata: { tabId: number; taskId: string; sourceId: string };
@@ -413,9 +412,13 @@ describe("Browser extraction metadata", () => {
         details.func(details.args[0]);
         return [{ frameId: 0, result: true }];
       }
+      activeFileInjections += 1;
+      maxActiveFileInjections = Math.max(maxActiveFileInjections, activeFileInjections);
       const metadata = readExtractionMetadata(target);
-      if (metadata.taskId === "task-a") await olderTaskPaused;
+      claimedTaskIds.push(metadata.taskId);
+      await Promise.resolve();
       clearExtractionMetadata(target, metadata.taskId);
+      activeFileInjections -= 1;
       return [{ frameId: 0, result: snapshot(metadata.tabId) }];
     });
     vi.stubGlobal("chrome", { scripting: { executeScript } });
@@ -425,11 +428,53 @@ describe("Browser extraction metadata", () => {
       const older = chromeAdapter.executeExtraction(7, "task-a");
       const newer = chromeAdapter.executeExtraction(7, "task-b");
 
-      await expect(newer).resolves.toMatchObject({ tabId: 7 });
-      expect(readExtractionMetadata(target, "task-a")).toMatchObject({ taskId: "task-a" });
-      expect(() => readExtractionMetadata(target, "task-b")).toThrow();
-      releaseOlderTask?.();
-      await expect(older).resolves.toMatchObject({ tabId: 7 });
+      await expect(Promise.all([older, newer])).resolves.toHaveLength(2);
+      expect(maxActiveFileInjections).toBe(1);
+      expect(claimedTaskIds).toEqual(["task-a", "task-b"]);
+      expect(() => readExtractionMetadata(target)).toThrow();
+    } finally {
+      delete target[EXTRACTION_METADATA_KEY];
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("cleans failed task metadata before allowing the next same-tab extraction", async () => {
+    const {
+      clearExtractionMetadata,
+      EXTRACTION_METADATA_KEY,
+      readExtractionMetadata,
+    } = await import("@/services/browser/extraction-metadata");
+    const target = globalThis as unknown as Record<string, unknown>;
+    let failNextFileInjection = true;
+    type MetadataInput = {
+      metadataKey: string;
+      metadata?: { tabId: number; taskId: string; sourceId: string };
+      taskId?: string;
+    };
+    const executeScript = vi.fn(async (details: {
+      args?: [MetadataInput];
+      files?: string[];
+      func?: (input: MetadataInput) => void;
+    }) => {
+      if (details.func && details.args) {
+        details.func(details.args[0]);
+        return [{ frameId: 0, result: true }];
+      }
+      if (failNextFileInjection) {
+        failNextFileInjection = false;
+        throw new Error("File injection failed");
+      }
+      const metadata = readExtractionMetadata(target);
+      clearExtractionMetadata(target, metadata.taskId);
+      return [{ frameId: 0, result: snapshot(metadata.tabId) }];
+    });
+    vi.stubGlobal("chrome", { scripting: { executeScript } });
+
+    try {
+      const chromeAdapter = new BrowserChromeAdapter();
+      await expect(chromeAdapter.executeExtraction(7, "task-failed")).rejects.toThrow("File injection failed");
+      expect(() => readExtractionMetadata(target, "task-failed")).toThrow();
+      await expect(chromeAdapter.executeExtraction(7, "task-next")).resolves.toMatchObject({ tabId: 7 });
       expect(() => readExtractionMetadata(target)).toThrow();
     } finally {
       delete target[EXTRACTION_METADATA_KEY];

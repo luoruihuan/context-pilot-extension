@@ -53,6 +53,7 @@ interface AppState {
   disclosureAccepted: boolean;
   acceptDisclosure(): Promise<void>;
   retry(turnId: string): Promise<void>;
+  canRetry(turnId: string): boolean;
   theme: ThemePreference;
   setTheme(theme: ThemePreference): Promise<void>;
 }
@@ -222,6 +223,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       disclosureAccepted: preferences.disclosureAccepted,
       acceptDisclosure,
       retry: (turnId) => services.controller.retry(turnId),
+      canRetry: (turnId) => services.controller.canRetry(turnId),
       theme: preferences.theme,
       setTheme,
     }),

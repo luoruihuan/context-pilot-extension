@@ -156,6 +156,7 @@ describe("ChatController", () => {
       turns: restored.turns,
       sourceErrors: [],
     });
+    expect(controller.canRetry("a1")).toBe(false);
   });
 
   it("forgets a deleted current conversation identity before the next save", async () => {
@@ -220,7 +221,7 @@ describe("ChatController", () => {
   });
 
   it("stops an active stream and keeps text already received", async () => {
-    const { controller, provider } = setup();
+    const { controller, provider, saved } = setup();
     provider.streamChat.mockImplementation(async function* (_profile, request) {
       yield { type: "text-delta", text: "已生成内容" };
       controller.stop();
@@ -235,6 +236,10 @@ describe("ChatController", () => {
 
     expect(controller.getState()).toMatchObject({ status: "stopped" });
     expect(controller.getState().turns.at(-1)).toMatchObject({
+      content: "已生成内容",
+      status: "stopped",
+    });
+    expect(saved.at(-1)?.turns.at(-1)).toMatchObject({
       content: "已生成内容",
       status: "stopped",
     });

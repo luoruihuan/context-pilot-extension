@@ -1,4 +1,7 @@
-import { BrowserChromeAdapter } from "@/services/browser/chrome-adapter";
+import {
+  BrowserChromeAdapter,
+  type ChromeAdapter,
+} from "@/services/browser/chrome-adapter";
 import { ExtractionClient } from "@/services/browser/extraction-client";
 import type { TabReference } from "@/shared/types/domain";
 import type { ExtensionResponse } from "@/shared/types/messages";
@@ -19,7 +22,9 @@ function expectResponse<T extends ExtensionResponse["type"]>(
 export class RuntimeClient {
   readonly extraction: ExtractionClient;
 
-  constructor(private readonly chrome = new BrowserChromeAdapter()) {
+  constructor(
+    private readonly chrome: Pick<ChromeAdapter, "sendMessage"> = new BrowserChromeAdapter(),
+  ) {
     this.extraction = new ExtractionClient((request) => this.chrome.sendMessage(request));
   }
 

@@ -4,7 +4,15 @@ import type { ChatTurn } from "@/shared/types/domain";
 import { StatusBadge } from "@/shared/components/StatusBadge";
 import styles from "./chat.module.css";
 
-export function MessageList({ turns, onRetry }: { turns: ChatTurn[]; onRetry?(turnId: string): void }) {
+export function MessageList({
+  turns,
+  onRetry,
+  canRetry,
+}: {
+  turns: ChatTurn[];
+  onRetry?(turnId: string): void;
+  canRetry?(turnId: string): boolean;
+}) {
   const [copyFeedback, setCopyFeedback] = useState<{ turnId: string; message: string; error: boolean }>();
 
   async function copyAnswer(turn: ChatTurn): Promise<void> {
@@ -37,9 +45,11 @@ export function MessageList({ turns, onRetry }: { turns: ChatTurn[]; onRetry?(tu
                 <button type="button" aria-label={`复制回答：${turn.content || "失败消息"}`} onClick={() => void copyAnswer(turn)}>
                   <Copy size={14} />复制
                 </button>
-                <button type="button" aria-label={`重试回答：${turn.content || "失败消息"}`} onClick={() => onRetry?.(turn.id)} disabled={!onRetry}>
-                  <RotateCcw size={14} />重试
-                </button>
+                {onRetry && (canRetry?.(turn.id) ?? true) && (
+                  <button type="button" aria-label={`重试回答：${turn.content || "失败消息"}`} onClick={() => onRetry(turn.id)}>
+                    <RotateCcw size={14} />重试
+                  </button>
+                )}
               </div>
             )}
             {copyFeedback?.turnId === turn.id && (
