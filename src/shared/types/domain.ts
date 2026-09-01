@@ -2,11 +2,47 @@ import { z } from "zod";
 
 export const providerKindSchema = z.enum(["openai-chat", "anthropic-messages"]);
 
+const modelBaseUrlSchema = z.string().superRefine((value, context) => {
+  let url: URL;
+
+  try {
+    url = new URL(value);
+  } catch {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "Invalid model base URL" });
+    return;
+  }
+
+  const isLocalHttp =
+    url.protocol === "http:" &&
+    (url.hostname === "localhost" || url.hostname === "127.0.0.1");
+
+  if (url.protocol !== "https:" && !isLocalHttp) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Model base URL must use HTTPS or local HTTP",
+    });
+  }
+
+  if (url.username || url.password) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Model base URL must not include credentials",
+    });
+  }
+
+  if (url.hash) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Model base URL must not include a fragment",
+    });
+  }
+});
+
 export const modelProfileSchema = z.object({
   id: z.string(),
   name: z.string(),
   provider: providerKindSchema,
-  baseUrl: z.string(),
+  baseUrl: modelBaseUrlSchema,
   apiKey: z.string(),
   model: z.string(),
   maxOutputTokens: z.number(),
