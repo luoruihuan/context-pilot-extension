@@ -5,6 +5,9 @@ import { join, resolve } from "node:path";
 import { startMockAiServer, type MockAiServer } from "./fixtures/mock-ai-server";
 
 const extensionPath = resolve(".output/chrome-mv3");
+const storeAssetRoot = resolve(
+  process.env.UPDATE_STORE_ASSETS === "1" ? "store-assets" : "test-results/playwright/store-assets",
+);
 
 interface ExtensionFixture {
   context: BrowserContext;
@@ -90,7 +93,7 @@ async function submit(panel: Page, question: string): Promise<void> {
   await panel.getByRole("button", { name: "发送消息" }).click();
 }
 
-test("可选页签权限被拒绝后显示可重试提示", async () => {
+test("生产 manifest 下可选页签和模型 origin 权限拒绝均可重试", async ({ server }) => {
   const profile = await mkdtemp(join(tmpdir(), "context-pilot-permission-e2e-"));
   const context = await chromium.launchPersistentContext(profile, {
     channel: "chromium",
@@ -108,21 +111,31 @@ test("可选页签权限被拒绝后显示可重试提示", async () => {
     const extensionId = new URL(worker.url()).host;
     const panel = await context.newPage();
     await panel.goto(`chrome-extension://${extensionId}/sidepanel.html`);
-    await panel.evaluate(async () => {
+    await panel.evaluate(async ({ origin }) => {
       await chrome.storage.local.set({
         modelProfiles: [{
           id: "permission-profile", name: "权限测试", provider: "openai-chat",
-          baseUrl: "http://127.0.0.1:1/v1", apiKey: "local-placeholder", model: "mock",
+          baseUrl: `${origin}/v1`, apiKey: "local-placeholder", model: "mock",
           maxOutputTokens: 64, isDefault: true, createdAt: 1, updatedAt: 1,
         }],
       });
-    });
+    }, { origin: server.origin });
     await panel.reload();
 
     await panel.getByRole("button", { name: "引用页签" }).click();
     await expect(panel.getByRole("alert")).toHaveText(/页签权限.*请重试授权/);
     await panel.getByRole("button", { name: "引用页签" }).click();
-    await expect(panel.getByRole("alert")).toContainText("请重试授权");
+    await expect(panel.getByRole("alert").last()).toContainText("请重试授权");
+
+    await panel.getByRole("button", { name: "设置" }).click();
+    await panel.getByRole("button", { name: "测试连接" }).click();
+    await expect(panel.getByRole("alert").last()).toContainText("请重试授权");
+    expect(server.requests.filter((request) => request.path === "/v1/models")).toHaveLength(0);
+    await panel.getByLabel("配置名称").fill("不应保存");
+    await panel.getByRole("button", { name: "保存模型" }).click();
+    await expect(panel.getByRole("alert").last()).toContainText("请重试授权");
+    const profiles = await panel.evaluate(async () => (await chrome.storage.local.get("modelProfiles")).modelProfiles);
+    expect(profiles).toEqual([expect.objectContaining({ name: "权限测试" })]);
   } finally {
     await context.close();
     await rm(profile, { recursive: true, force: true });
@@ -136,9 +149,9 @@ test("当前页问答、停止生成、历史恢复与设置 CRUD", async ({ con
   await expect(panel.getByText("当前页总结：北港部署三台潮汐涡轮机，年发电量预计 4.8 吉瓦时。", { exact: true })).toBeVisible();
   await expect(panel.getByText(/输入 84.*输出 22/)).toBeVisible();
   await panel.setViewportSize({ width: 1280, height: 800 });
-  await panel.screenshot({ path: "store-assets/screenshots/01-current-page-answer.png" });
+  await panel.screenshot({ path: join(storeAssetRoot, "screenshots/01-current-page-answer.png") });
   await panel.setViewportSize({ width: 440, height: 280 });
-  await panel.screenshot({ path: "store-assets/promo-440x280.png" });
+  await panel.screenshot({ path: join(storeAssetRoot, "promo-440x280.png") });
   await panel.setViewportSize({ width: 480, height: 800 });
 
   await submit(panel, "停止生成并保留文字");
@@ -153,6 +166,16 @@ test("当前页问答、停止生成、历史恢复与设置 CRUD", async ({ con
   await expect(panel.getByText("当前页总结：北港部署三台潮汐涡轮机，年发电量预计 4.8 吉瓦时。", { exact: true })).toBeVisible();
 
   await panel.getByRole("button", { name: "设置" }).click();
+  await panel.getByRole("option", { name: /本地 OpenAI/ }).click();
+  await panel.getByLabel("配置名称").fill("本地 OpenAI 已编辑");
+  await panel.getByLabel("模型名称").fill("mock-model-v2");
+  await panel.getByRole("button", { name: "保存模型" }).click();
+  await panel.reload();
+  await panel.getByRole("button", { name: "设置" }).click();
+  await panel.getByRole("option", { name: /本地 OpenAI 已编辑/ }).click();
+  await expect(panel.getByLabel("配置名称")).toHaveValue("本地 OpenAI 已编辑");
+  await expect(panel.getByLabel("模型名称")).toHaveValue("mock-model-v2");
+
   await panel.getByRole("button", { name: "新建配置" }).click();
   await panel.getByLabel("配置名称").fill("本地 Anthropic");
   await panel.getByLabel("API 协议").selectOption("anthropic-messages");
@@ -179,14 +202,18 @@ test("@ 两页授权后读取 SPA 最新内容，单页失败仍继续联合分�
   await panel.getByRole("button", { name: "引用页签" }).click();
   await expect(panel.getByRole("dialog", { name: "选择页签" })).toBeVisible();
   await panel.setViewportSize({ width: 1280, height: 800 });
-  await panel.screenshot({ path: "store-assets/screenshots/02-tab-selection.png" });
+  await panel.screenshot({ path: join(storeAssetRoot, "screenshots/02-tab-selection.png") });
   await panel.setViewportSize({ width: 480, height: 800 });
   await panel.getByRole("combobox", { name: "引用已打开页签" }).press("Escape");
   await submit(panel, "比较两个页面");
   await expect(panel.getByText(/T1 与 T2 的比较结果/)).toBeVisible();
   await expect(panel.getByText(/SPA 已更新为六小时维护窗口/)).toBeVisible();
+  const spaRequest = [...server.requests].reverse().find((request) => request.path === "/v1/chat/completions");
+  expect(spaRequest?.body).toContain("4.8 吉瓦时");
+  expect(spaRequest?.body).toContain("六小时");
+  expect(spaRequest?.body).not.toContain("2.1 吉瓦时");
   await panel.setViewportSize({ width: 1280, height: 800 });
-  await panel.screenshot({ path: "store-assets/screenshots/03-joint-analysis.png" });
+  await panel.screenshot({ path: join(storeAssetRoot, "screenshots/03-joint-analysis.png") });
   await panel.setViewportSize({ width: 480, height: 800 });
 
   await panel.getByRole("button", { name: "新对话" }).click();

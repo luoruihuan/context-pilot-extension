@@ -100,3 +100,22 @@ Mock server 同时实现 OpenAI `/v1/chat/completions` 与 Anthropic `/v1/messag
 4. 上架前发布稳定 HTTPS 隐私政策、配置真实支持邮箱/支持页，并向审核方私下提供限额 HTTPS 测试凭证。
 
 以上项目未伪造为自动化通过，不影响本地构建和可重复 E2E 基线。
+
+## Reviewer 修复（P0/P1/P2）
+
+### 补充 RED 证据
+
+1. 模型 origin 权限：先新增 background message 集成测试，初次返回 `INVALID_REQUEST`，证明运行时缺少 `context-pilot/request-origin-permission` 路由。
+2. 保存失败反馈：先新增 `ModelProfileForm` 集成测试，保存 Promise 拒绝后初次找不到 `role="alert"`。
+3. 删除当前会话：先新增 `ChatController` 集成测试，初次缺少 `controller.forgetConversation`；补齐方法后继续加强断言，确认仅清 ID 仍会让下一次保存包含已删除会话的“旧问题”，随后改为重置当前会话 identity、turns 和状态。
+4. 生产 manifest 权限拒绝：在未修改 manifest、Chromium `--deny-permission-prompts` 环境中，首次模型 origin 拒绝只显示 `The browser operation failed`，随后统一为中文“需要授权模型服务地址。请重试授权。”。
+
+### 修复结果
+
+- 保存或测试模型配置前，根据经校验的 `baseUrl` 请求精确 origin 权限；拒绝或原生 prompt 异常时不保存配置、不访问 `/v1/models`，并显示可重试提示。
+- 删除当前持久化会话时同步清理控制器中的会话 ID 和旧 turns；删除其他历史项不影响正在查看的会话。
+- 设置 E2E 新增已有配置编辑、保存、reload 和重新进入设置后的字段持久化断言，并继续覆盖新建、测试、保存和删除 Anthropic 配置。
+- SPA mock 解析真实 OpenAI request body；联合分析必须包含最新的 `4.8 吉瓦时` 和 `六小时`，且不得包含旧值 `2.1 吉瓦时`，否则返回 422。E2E 同时直接断言记录到的请求体。
+- 普通 E2E 截图改写入忽略跟踪的 `test-results/playwright/store-assets`；回归前后 tracked 商店素材 SHA256 一致。只有显式运行 `pnpm store-assets:generate` 才更新 `store-assets`，仍需人工复核后提交。
+
+最终串联验证退出码 0：TypeScript 和 ESLint 通过；Vitest 17 files、107/107 tests 通过，statements 79.97%、branches 78.46%、functions 83.13%、lines 79.97%；WXT production build 通过；Playwright 4/4 通过。生产 manifest 权限集合保持不变，构建产物安全扫描仍无动态执行、远程 JavaScript、测试凭证或 source map。

@@ -49,6 +49,48 @@ function router(chrome: ChromeAdapter): BackgroundMessageRouter {
 }
 
 describe("BackgroundMessageRouter", () => {
+  it("derives and requests the optional model origin from a validated base URL", async () => {
+    const requestPermissions = vi.fn().mockResolvedValue(false);
+    const chrome = adapter({
+      containsPermissions: vi.fn().mockResolvedValue(false),
+      requestPermissions,
+    });
+
+    await expect(
+      router(chrome).handle(
+        {
+          type: "context-pilot/request-origin-permission",
+          baseUrl: "https://models.example.com/v1/",
+        },
+        { id: "extension-id" },
+      ),
+    ).resolves.toEqual({
+      type: "context-pilot/origin-permission",
+      granted: false,
+    });
+    expect(requestPermissions).toHaveBeenCalledWith({
+      origins: ["https://models.example.com/*"],
+    });
+  });
+
+  it("rejects invalid model origins without requesting permissions", async () => {
+    const requestPermissions = vi.fn();
+    const chrome = adapter({ requestPermissions });
+
+    await expect(
+      router(chrome).handle(
+        {
+          type: "context-pilot/request-origin-permission",
+          baseUrl: "http://models.example.com/v1",
+        },
+        { id: "extension-id" },
+      ),
+    ).resolves.toMatchObject({
+      type: "context-pilot/error",
+    });
+    expect(requestPermissions).not.toHaveBeenCalled();
+  });
+
   it("requests optional tabs permission only through an explicit message", async () => {
     const requestPermissions = vi.fn().mockResolvedValue(false);
     const chrome = adapter({

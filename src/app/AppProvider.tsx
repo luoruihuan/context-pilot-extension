@@ -14,6 +14,7 @@ import {
 } from "@/features/context/context-reducer";
 import { RuntimeClient } from "@/services/browser/runtime-client";
 import { getProvider } from "@/services/llm/provider-registry";
+import { validateModelBaseUrl } from "@/services/llm/url-policy";
 import {
   ConversationRepository,
   ModelProfileRepository,
@@ -70,6 +71,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
   const [chat, setChat] = useState<ChatState>(services.controller.getState());
 
+  async function requireOriginPermission(baseUrl: string): Promise<void> {
+    validateModelBaseUrl(baseUrl);
+    try {
+      if (await services.runtime.requestOriginPermission(baseUrl)) return;
+    } catch {
+      // Chrome rejects native permission prompts in some automated and denied flows.
+    }
+    throw new Error("需要授权模型服务地址。请重试授权。");
+  }
+
   useEffect(() => {
     let active = true;
     const unsubscribe = services.controller.subscribe(setChat);
@@ -96,6 +107,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [services]);
 
   async function saveProfile(nextProfile: ModelProfile): Promise<void> {
+    await requireOriginPermission(nextProfile.baseUrl);
     await services.profiles.save(nextProfile);
     setProfiles(await services.profiles.list());
     setProfile(nextProfile);
@@ -121,6 +133,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }
 
   async function testProfile(nextProfile: ModelProfile): Promise<void> {
+    await requireOriginPermission(nextProfile.baseUrl);
     await getProvider(nextProfile.provider).testConnection(nextProfile, new AbortController().signal);
   }
 
@@ -143,6 +156,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   async function deleteConversation(id: string): Promise<void> {
     await services.conversations.delete(id);
+    services.controller.forgetConversation(id);
     await refreshConversations();
   }
 

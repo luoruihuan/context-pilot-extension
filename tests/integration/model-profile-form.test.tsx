@@ -77,6 +77,20 @@ describe("ModelProfileForm", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("连接失败");
   });
 
+  it("shows a retryable origin permission error when saving is rejected", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn().mockRejectedValue(new Error("需要授权模型服务地址。请重试授权。"));
+    render(<ModelProfileForm onSave={onSave} onTest={vi.fn()} />);
+
+    await user.type(screen.getByLabelText("配置名称"), "Work");
+    await user.type(screen.getByLabelText("API 地址"), "https://api.example.com/v1");
+    await user.type(screen.getByLabelText("API Key"), "key");
+    await user.type(screen.getByLabelText("模型名称"), "model");
+    await user.click(screen.getByRole("button", { name: "保存模型" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("需要授权模型服务地址。请重试授权。");
+  });
+
   it("lists profiles and supports selecting, creating, and deleting a profile", async () => {
     const user = userEvent.setup();
     const onSelect = vi.fn();

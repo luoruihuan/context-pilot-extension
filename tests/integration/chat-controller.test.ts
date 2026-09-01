@@ -147,6 +147,43 @@ describe("ChatController", () => {
     });
   });
 
+  it("forgets a deleted current conversation identity before the next save", async () => {
+    const { controller, saved } = setup();
+    controller.restore({
+      id: "deleted-conversation",
+      turns: [
+        { id: "u-old", role: "user", content: "旧问题", sources: [], createdAt: 1, status: "complete" },
+      ],
+      createdAt: 1,
+      updatedAt: 1,
+    });
+
+    controller.forgetConversation("deleted-conversation");
+    await controller.send({ text: "删除后继续", tabIds: [1], profileId: "p1" });
+
+    expect(saved).toHaveLength(1);
+    expect(saved[0]?.id).not.toBe("deleted-conversation");
+    expect(JSON.stringify(saved[0])).not.toContain("旧问题");
+  });
+
+  it("does not clear the current conversation when another history item is deleted", async () => {
+    const { controller, saved } = setup();
+    controller.restore({
+      id: "current-conversation",
+      turns: [
+        { id: "u-current", role: "user", content: "当前旧问题", sources: [], createdAt: 1, status: "complete" },
+      ],
+      createdAt: 1,
+      updatedAt: 1,
+    });
+
+    controller.forgetConversation("another-conversation");
+    await controller.send({ text: "继续当前会话", tabIds: [1], profileId: "p1" });
+
+    expect(saved[0]?.id).toBe("current-conversation");
+    expect(JSON.stringify(saved[0])).toContain("当前旧问题");
+  });
+
   it("reports a context error when every page fails and retries extraction on the next send", async () => {
     const { controller, extraction, provider } = setup();
     extraction.extractTabs

@@ -1,4 +1,5 @@
 import type { ChromeAdapter } from "@/services/browser/chrome-adapter";
+import { validateModelBaseUrl } from "@/services/llm/url-policy";
 
 const LOCAL_HTTP_HOSTS = new Set(["localhost", "127.0.0.1"]);
 
@@ -43,6 +44,18 @@ export class PermissionService {
   requestPageOrigin(pageUrl: string): Promise<boolean> {
     return this.chrome.requestPermissions({
       origins: [originPatternForPage(pageUrl)],
+    });
+  }
+
+  hasOriginPermission(baseUrl: string): Promise<boolean> {
+    return this.chrome.containsPermissions({
+      origins: [validateModelBaseUrl(baseUrl).originPattern],
+    });
+  }
+
+  requestOriginPermission(baseUrl: string): Promise<boolean> {
+    return this.chrome.requestPermissions({
+      origins: [validateModelBaseUrl(baseUrl).originPattern],
     });
   }
 }

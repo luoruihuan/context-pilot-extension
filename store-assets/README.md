@@ -2,6 +2,8 @@
 
 本目录包含 Context Pilot 0.1.0 的上架素材。截图由 Playwright 从本地打包扩展页面和确定性 mock 数据生成，不是概念图；mock API Key 仅为本机服务标识，不对应任何真实凭证。
 
+普通 `pnpm playwright test` 只写入忽略跟踪的 `test-results/`。需要明确更新本目录中的稳定素材时运行 `pnpm store-assets:generate`，并人工复核尺寸与内容后提交。
+
 ## 素材
 
 - `icon-source.svg`：无文字、无渐变的品牌源图，charcoal + teal + coral 配色。

@@ -16,6 +16,7 @@ import type {
 const requestSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("context-pilot/get-tabs") }).strict(),
   z.object({ type: z.literal("context-pilot/request-tabs-permission") }).strict(),
+  z.object({ type: z.literal("context-pilot/request-origin-permission"), baseUrl: z.string().max(2048) }).strict(),
   z
     .object({
       type: z.literal("context-pilot/request-tab-access"),
@@ -78,6 +79,14 @@ export class BackgroundMessageRouter {
               (await this.permissions.hasTabsPermission()) ||
               (await this.permissions.requestTabsPermission()),
           };
+        case "context-pilot/request-origin-permission": {
+          return {
+            type: "context-pilot/origin-permission",
+            granted:
+              (await this.permissions.hasOriginPermission(request.baseUrl)) ||
+              (await this.permissions.requestOriginPermission(request.baseUrl)),
+          };
+        }
         case "context-pilot/request-tab-access": {
           const tab = await this.tabs.requireReadableTab(request.tabId);
           const granted =

@@ -89,6 +89,11 @@ export class ChatController {
     this.dispatch({ type: "restore", turns: conversation.turns });
   }
 
+  forgetConversation(id: string): void {
+    if (this.conversationId !== id) return;
+    this.reset();
+  }
+
   stop(): void {
     if (this.state.status !== "extracting" && this.state.status !== "streaming") return;
     this.abortController?.abort();

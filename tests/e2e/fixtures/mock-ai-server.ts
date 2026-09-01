@@ -5,6 +5,7 @@ import { articlePage, spaPage, tablePage } from "./test-pages";
 export interface MockAiServer {
   origin: string;
   localhostOrigin: string;
+  requests: Array<{ method: string; path: string; body: string }>;
   close(): Promise<void>;
 }
 
@@ -30,10 +31,30 @@ function writeSplit(response: ServerResponse, value: string): void {
   response.write(value.slice(midpoint));
 }
 
-async function openAiStream(request: IncomingMessage, response: ServerResponse): Promise<void> {
+async function openAiStream(
+  request: IncomingMessage,
+  response: ServerResponse,
+  requests: MockAiServer["requests"],
+): Promise<void> {
   const body = await bodyOf(request);
-  const slow = body.includes("停止生成");
-  const answer = body.includes("比较两个页面")
+  requests.push({ method: request.method ?? "GET", path: "/v1/chat/completions", body });
+  let payload: { messages?: Array<{ content?: string }> } = {};
+  try {
+    payload = JSON.parse(body) as typeof payload;
+  } catch {
+    response.writeHead(400, { "access-control-allow-origin": "*" });
+    response.end("Invalid JSON");
+    return;
+  }
+  const prompt = payload.messages?.map((message) => message.content ?? "").join("\n") ?? "";
+  const isSpa = prompt.includes("区域能源看板");
+  if (isSpa && (!prompt.includes("4.8 吉瓦时") || !prompt.includes("六小时") || prompt.includes("2.1 吉瓦时"))) {
+    response.writeHead(422, { "access-control-allow-origin": "*", "content-type": "application/json" });
+    response.end(JSON.stringify({ error: { message: "SPA context was stale" } }));
+    return;
+  }
+  const slow = prompt.includes("停止生成");
+  const answer = prompt.includes("比较两个页面")
     ? "T1 与 T2 的比较结果：两页都显示 4.8 吉瓦时，SPA 已更新为六小时维护窗口。"
     : body.includes("表格")
       ? "表格显示北港发电量 4.8 GWh，维护窗口 6 小时。"
@@ -52,8 +73,13 @@ async function openAiStream(request: IncomingMessage, response: ServerResponse):
   response.end("data: [DONE]\n\n");
 }
 
-async function anthropicStream(request: IncomingMessage, response: ServerResponse): Promise<void> {
-  await bodyOf(request);
+async function anthropicStream(
+  request: IncomingMessage,
+  response: ServerResponse,
+  requests: MockAiServer["requests"],
+): Promise<void> {
+  const body = await bodyOf(request);
+  requests.push({ method: request.method ?? "GET", path: "/anthropic/v1/messages", body });
   response.writeHead(200, {
     "content-type": "text/event-stream",
     "cache-control": "no-cache",
@@ -67,6 +93,7 @@ async function anthropicStream(request: IncomingMessage, response: ServerRespons
 }
 
 export async function startMockAiServer(): Promise<MockAiServer> {
+  const requests: MockAiServer["requests"] = [];
   const server = createServer(async (request, response) => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
     if (request.method === "OPTIONS") {
@@ -79,10 +106,14 @@ export async function startMockAiServer(): Promise<MockAiServer> {
     } else if (url.pathname === "/article") html(response, articlePage());
     else if (url.pathname === "/spa") html(response, spaPage());
     else if (url.pathname === "/table") html(response, tablePage());
-    else if (url.pathname === "/v1/models") json(response, { data: [{ id: "mock-model" }] });
-    else if (url.pathname === "/v1/chat/completions") await openAiStream(request, response);
-    else if (url.pathname === "/anthropic/v1/models") json(response, { data: [{ id: "mock-claude" }] });
-    else if (url.pathname === "/anthropic/v1/messages") await anthropicStream(request, response);
+    else if (url.pathname === "/v1/models") {
+      requests.push({ method: request.method ?? "GET", path: url.pathname, body: "" });
+      json(response, { data: [{ id: "mock-model" }] });
+    } else if (url.pathname === "/v1/chat/completions") await openAiStream(request, response, requests);
+    else if (url.pathname === "/anthropic/v1/models") {
+      requests.push({ method: request.method ?? "GET", path: url.pathname, body: "" });
+      json(response, { data: [{ id: "mock-claude" }] });
+    } else if (url.pathname === "/anthropic/v1/messages") await anthropicStream(request, response, requests);
     else {
       response.writeHead(404, { "access-control-allow-origin": "*" });
       response.end("Not found");
@@ -96,6 +127,7 @@ export async function startMockAiServer(): Promise<MockAiServer> {
   return {
     origin: `http://127.0.0.1:${port}`,
     localhostOrigin: `http://localhost:${port}`,
+    requests,
     close: () => new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve())),
   };
 }

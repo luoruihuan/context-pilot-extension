@@ -27,6 +27,7 @@ export function ModelProfileForm({
   const [testing, setTesting] = useState(false);
   const [testPassed, setTestPassed] = useState(false);
   const [testError, setTestError] = useState("");
+  const [saveError, setSaveError] = useState("");
   const profile = useMemo<ModelProfile>(() => {
     const timestamp = now();
     return {
@@ -48,6 +49,7 @@ export function ModelProfileForm({
     setTesting(true);
     setTestPassed(false);
     setTestError("");
+    setSaveError("");
     try {
       await onTest(profile);
       setTestPassed(true);
@@ -60,7 +62,11 @@ export function ModelProfileForm({
 
   function submit(event: FormEvent) {
     event.preventDefault();
-    void onSave(profile);
+    setSaveError("");
+    setTestError("");
+    void Promise.resolve(onSave(profile)).catch((caught: unknown) => {
+      setSaveError(caught instanceof Error ? caught.message : "保存失败，请重试。");
+    });
   }
 
   return (
@@ -90,6 +96,7 @@ export function ModelProfileForm({
       </div>
       <p className={styles.disclosure}>网页内容和问题会直接发送到你配置的 AI 服务商，开发者不会接收这些数据。</p>
       {testError && <p className={styles.formError} role="alert">{testError}</p>}
+      {saveError && <p className={styles.formError} role="alert">{saveError}</p>}
       <div className={styles.actions}>
         <button className={styles.secondaryButton} type="button" disabled={testing} onClick={() => void testConnection()}>
           {testing ? <LoaderCircle className={styles.spin} size={15} /> : testPassed ? <CheckCircle2 size={15} /> : <PlugZap size={15} />}
