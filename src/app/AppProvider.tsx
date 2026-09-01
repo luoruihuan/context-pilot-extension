@@ -17,6 +17,7 @@ import { getProvider } from "@/services/llm/provider-registry";
 import {
   ConversationRepository,
   ModelProfileRepository,
+  type Conversation,
 } from "@/services/storage";
 import type { ModelProfile, TabReference } from "@/shared/types/domain";
 
@@ -32,6 +33,9 @@ interface AppState {
   send(message: string, tabIds: number[]): Promise<void>;
   stop(): void;
   resetChat(): void;
+  conversations: Conversation[];
+  openConversation(id: string): Promise<void>;
+  deleteConversation(id: string): Promise<void>;
   profiles: ModelProfile[];
   profile?: ModelProfile;
   selectProfile(id: string): void;
@@ -46,11 +50,12 @@ interface AppState {
 const AppContext = createContext<AppState | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [view, setView] = useState<View>("chat");
+  const [view, setCurrentView] = useState<View>("chat");
   const [context, dispatch] = useReducer(contextReducer, { selectedTabs: [] });
   const [tabs, setTabs] = useState<TabReference[]>([]);
   const [profiles, setProfiles] = useState<ModelProfile[]>([]);
   const [profile, setProfile] = useState<ModelProfile>();
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   const services = useMemo(() => {
     const runtime = new RuntimeClient();
     const profiles = new ModelProfileRepository();
@@ -119,6 +124,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await getProvider(nextProfile.provider).testConnection(nextProfile, new AbortController().signal);
   }
 
+  async function refreshConversations(): Promise<void> {
+    const items = await services.conversations.list();
+    setConversations(items.sort((left, right) => right.updatedAt - left.updatedAt));
+  }
+
+  function setView(nextView: View): void {
+    setCurrentView(nextView);
+    if (nextView === "history") void refreshConversations();
+  }
+
+  async function openConversation(id: string): Promise<void> {
+    const conversation = await services.conversations.get(id);
+    if (!conversation) return;
+    services.controller.restore(conversation);
+    setCurrentView("chat");
+  }
+
+  async function deleteConversation(id: string): Promise<void> {
+    await services.conversations.delete(id);
+    await refreshConversations();
+  }
+
   const value = useMemo<AppState>(
     () => ({
       view,
@@ -133,6 +160,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       },
       stop: () => services.controller.stop(),
       resetChat: () => services.controller.reset(),
+      conversations,
+      openConversation,
+      deleteConversation,
       profiles,
       profile,
       selectProfile: (id) => setProfile(profiles.find((item) => item.id === id)),
@@ -143,7 +173,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       requestTabsPermission,
       requestTabAccess,
     }),
-    [chat, context.selectedTabs, profile, profiles, services, tabs, view],
+    [chat, context.selectedTabs, conversations, profile, profiles, services, tabs, view],
   );
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

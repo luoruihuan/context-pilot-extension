@@ -1,4 +1,4 @@
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 import { fileURLToPath, URL } from "node:url";
 
 export default defineConfig({
@@ -9,5 +9,6 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    exclude: [...configDefaults.exclude, "tests/e2e/**"],
   },
 });

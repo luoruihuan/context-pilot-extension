@@ -81,6 +81,14 @@ export class ChatController {
     this.dispatch({ type: "reset" });
   }
 
+  restore(conversation: Conversation): void {
+    this.stop();
+    this.runId += 1;
+    this.conversationId = conversation.id;
+    this.createdAt = conversation.createdAt;
+    this.dispatch({ type: "restore", turns: conversation.turns });
+  }
+
   stop(): void {
     if (this.state.status !== "extracting" && this.state.status !== "streaming") return;
     this.abortController?.abort();

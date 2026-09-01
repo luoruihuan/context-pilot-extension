@@ -126,6 +126,27 @@ describe("ChatController", () => {
     expect(controller.getState().turns.filter((turn) => turn.role === "assistant")).toHaveLength(2);
   });
 
+  it("restores a persisted conversation as an idle chat that can continue", async () => {
+    const { controller } = setup();
+    const restored: Conversation = {
+      id: "conversation-restored",
+      turns: [
+        { id: "u1", role: "user", content: "旧问题", sources: [], createdAt: 10, status: "complete" },
+        { id: "a1", role: "assistant", content: "旧回答", sources: [], createdAt: 11, status: "complete" },
+      ],
+      createdAt: 10,
+      updatedAt: 11,
+    };
+
+    controller.restore(restored);
+
+    expect(controller.getState()).toEqual({
+      status: "idle",
+      turns: restored.turns,
+      sourceErrors: [],
+    });
+  });
+
   it("reports a context error when every page fails and retries extraction on the next send", async () => {
     const { controller, extraction, provider } = setup();
     extraction.extractTabs

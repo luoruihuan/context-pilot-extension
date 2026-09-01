@@ -47,7 +47,19 @@ function Workspace() {
           status={app.chat.status}
         />
       )}
-      {app.view === "history" && <HistoryView items={[]} onBack={() => app.setView("chat")} onOpen={() => app.setView("chat")} onDelete={() => undefined} />}
+      {app.view === "history" && (
+        <HistoryView
+          items={app.conversations.map((conversation) => ({
+            id: conversation.id,
+            title: conversation.turns.find((turn) => turn.role === "user")?.content ?? "未命名对话",
+            updatedAt: conversation.updatedAt,
+            turnCount: conversation.turns.length,
+          }))}
+          onBack={() => app.setView("chat")}
+          onOpen={(id) => void app.openConversation(id)}
+          onDelete={(id) => void app.deleteConversation(id)}
+        />
+      )}
       {app.view === "settings" && <SettingsView profiles={app.profiles} profile={app.profile} onBack={() => app.setView("chat")} onSave={app.saveProfile} onTest={app.testProfile} onSelect={app.selectProfile} onCreate={app.createProfile} onDelete={app.deleteProfile} />}
     </main>
   );

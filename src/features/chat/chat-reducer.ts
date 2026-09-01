@@ -42,6 +42,7 @@ export type ChatAction =
   | { type: "complete"; turnId: string }
   | { type: "stopped"; turnId?: string }
   | { type: "error"; error: ChatState["error"]; turnId?: string; sourceErrors?: SourceError[] }
+  | { type: "restore"; turns: ChatTurn[] }
   | { type: "reset" };
 
 function updateTurn(
@@ -110,6 +111,12 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           ...turn,
           status: "error",
         })),
+      };
+    case "restore":
+      return {
+        status: "idle",
+        turns: structuredClone(action.turns),
+        sourceErrors: [],
       };
     case "reset":
       return initialChatState;
