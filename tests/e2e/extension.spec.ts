@@ -97,6 +97,10 @@ async function submit(panel: Page, question: string): Promise<void> {
   }
 }
 
+async function openAppMenu(panel: Page): Promise<void> {
+  await panel.getByRole("button", { name: "更多操作" }).click();
+}
+
 test("生产 manifest 下可选页签和模型 origin 权限拒绝均可重试", async ({ server }) => {
   const profile = await mkdtemp(join(tmpdir(), "context-pilot-permission-e2e-"));
   const context = await chromium.launchPersistentContext(profile, {
@@ -131,7 +135,8 @@ test("生产 manifest 下可选页签和模型 origin 权限拒绝均可重试",
     await panel.getByRole("button", { name: "引用页签" }).click();
     await expect(panel.getByRole("alert").last()).toContainText("请重试授权");
 
-    await panel.getByRole("button", { name: "设置" }).click();
+    await openAppMenu(panel);
+    await panel.getByRole("menuitem", { name: "设置" }).click();
     await panel.getByRole("button", { name: "测试连接" }).click();
     await expect(panel.getByRole("alert").last()).toContainText("请在设置页重新点击授权");
     expect(server.requests.filter((request) => request.path === "/v1/models")).toHaveLength(0);
@@ -169,13 +174,15 @@ test("当前页问答、停止生成、历史恢复与设置 CRUD", async ({ con
   await panel.getByRole("button", { name: "停止生成" }).click();
   await expect(panel.getByText("已停止", { exact: true })).toBeVisible();
 
-  await panel.getByRole("button", { name: "对话历史" }).click();
+  await openAppMenu(panel);
+  await panel.getByRole("menuitem", { name: "对话历史" }).click();
   const historyItem = panel.getByRole("button", { name: /^总结当前页 \d+ 条消息$/ });
   await expect(historyItem).toBeVisible();
   await historyItem.click();
   await expect(panel.getByText("当前页总结：北港部署三台潮汐涡轮机，年发电量预计 4.8 吉瓦时。", { exact: true })).toBeVisible();
 
-  await panel.getByRole("button", { name: "设置" }).click();
+  await openAppMenu(panel);
+  await panel.getByRole("menuitem", { name: "设置" }).click();
   await panel.getByRole("option", { name: /本地 OpenAI/ }).click();
   await panel.getByLabel("配置名称").fill("本地 OpenAI 已编辑");
   await panel.getByLabel("模型名称").fill("mock-model-v2");
@@ -185,7 +192,8 @@ test("当前页问答、停止生成、历史恢复与设置 CRUD", async ({ con
   await expect(panel.locator("html")).toHaveAttribute("data-theme", "dark");
   await panel.getByRole("button", { name: "保存模型" }).click();
   await panel.reload();
-  await panel.getByRole("button", { name: "设置" }).click();
+  await openAppMenu(panel);
+  await panel.getByRole("menuitem", { name: "设置" }).click();
   await panel.getByRole("option", { name: /本地 OpenAI 已编辑/ }).click();
   await expect(panel.getByLabel("配置名称")).toHaveValue("本地 OpenAI 已编辑");
   await expect(panel.getByLabel("模型名称")).toHaveValue("mock-model-v2");
@@ -239,7 +247,8 @@ test("@ 两页授权后读取 SPA 最新内容，单页失败仍继续联合分�
   await panel.screenshot({ path: join(storeAssetRoot, "screenshots/03-joint-analysis.png") });
   await panel.setViewportSize({ width: 480, height: 800 });
 
-  await panel.getByRole("button", { name: "新对话" }).click();
+  await openAppMenu(panel);
+  await panel.getByRole("menuitem", { name: "新对话" }).click();
   await article.close();
   await submit(panel, "比较两个页面");
   await expect(panel.getByText(/读取失败，已继续分析其他页面/)).toBeVisible();
@@ -254,7 +263,7 @@ test("在 360/480/600 宽度及浅深色下没有 DOM 重叠", async ({ context,
     for (const scheme of ["light", "dark"] as const) {
       await panel.emulateMedia({ colorScheme: scheme });
       const overlap = await panel.evaluate(() => {
-        const toolbar = document.querySelector("header");
+        const toolbar = document.querySelector("[aria-label='更多操作']");
         const composer = document.querySelector("textarea");
         if (!(toolbar instanceof HTMLElement) || !(composer instanceof HTMLElement)) return true;
         const top = toolbar.getBoundingClientRect();

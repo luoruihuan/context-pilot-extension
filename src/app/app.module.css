@@ -1,3 +1,6 @@
-.app { background: var(--cp-color-background); box-sizing: border-box; display: grid; grid-template-rows: 44px minmax(0, 1fr); height: 100vh; min-height: 420px; padding: 0; }
-.toolbar { align-items: center; background: var(--cp-color-surface); border-bottom: 1px solid var(--cp-color-border); display: flex; justify-content: flex-end; padding: 0 8px; }
-.toolbar nav { display: flex; gap: 2px; }
+.app { background: var(--cp-color-background); box-sizing: border-box; display: grid; grid-template-rows: minmax(0, 1fr); height: 100vh; min-height: 420px; padding: 0; position: relative; }
+.menuAnchor { position: absolute; right: 8px; top: 8px; z-index: 6; }
+.menu { background: var(--cp-color-surface); border: 1px solid var(--cp-color-border-strong); border-radius: var(--cp-button-radius); box-shadow: var(--cp-shadow-picker); display: grid; gap: 2px; min-width: 132px; padding: 4px; position: absolute; right: 0; top: 36px; }
+.menu:not([data-open="true"]) { display: none; }
+.menu button { align-items: center; background: transparent; border: 0; border-radius: var(--cp-button-radius); color: var(--cp-color-text); display: flex; font: inherit; font-size: 12px; gap: 8px; min-height: 32px; padding: 0 8px; text-align: left; white-space: nowrap; }
+.menu button:hover { background: var(--cp-color-surface-subtle); }
