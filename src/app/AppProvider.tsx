@@ -93,10 +93,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     validateModelBaseUrl(baseUrl);
     try {
       if (await services.runtime.requestOriginPermission(baseUrl)) return;
-    } catch {
-      // Chrome rejects native permission prompts in some automated and denied flows.
+    } catch (caught) {
+      const detail = caught instanceof Error && caught.message ? ` ${caught.message}` : "";
+      throw new Error(`模型服务地址授权失败，请在设置页重新点击授权。${detail}`);
     }
-    throw new Error("需要授权模型服务地址。请重试授权。");
+    throw new Error("模型服务地址未获授权，请在设置页重新点击授权。");
   }
 
   useEffect(() => {

@@ -3,6 +3,7 @@ import {
   type ChromeAdapter,
 } from "@/services/browser/chrome-adapter";
 import { ExtractionClient } from "@/services/browser/extraction-client";
+import { validateModelBaseUrl } from "@/services/llm/url-policy";
 import type { TabReference } from "@/shared/types/domain";
 import type { ExtensionResponse } from "@/shared/types/messages";
 
@@ -23,7 +24,7 @@ export class RuntimeClient {
   readonly extraction: ExtractionClient;
 
   constructor(
-    private readonly chrome: Pick<ChromeAdapter, "sendMessage"> = new BrowserChromeAdapter(),
+    private readonly chrome: Pick<ChromeAdapter, "sendMessage" | "containsPermissions" | "requestPermissions"> = new BrowserChromeAdapter(),
   ) {
     this.extraction = new ExtractionClient((request) => this.chrome.sendMessage(request));
   }
@@ -39,11 +40,8 @@ export class RuntimeClient {
   }
 
   async requestOriginPermission(baseUrl: string): Promise<boolean> {
-    const response = await this.chrome.sendMessage({
-      type: "context-pilot/request-origin-permission",
-      baseUrl,
-    });
-    return expectResponse(response, "context-pilot/origin-permission").granted;
+    const { originPattern } = validateModelBaseUrl(baseUrl);
+    return this.chrome.requestPermissions({ origins: [originPattern] });
   }
 
   async requestTabAccess(tabId: number, origin: string): Promise<boolean> {

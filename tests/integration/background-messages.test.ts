@@ -295,6 +295,21 @@ describe("BackgroundMessageRouter", () => {
 });
 
 describe("RuntimeClient", () => {
+  it("requests model origin directly so Chrome can keep the user gesture", async () => {
+    const chrome = adapter({
+      containsPermissions: vi.fn().mockResolvedValue(false),
+      requestPermissions: vi.fn().mockResolvedValue(true),
+      sendMessage: vi.fn(),
+    });
+    const client = new RuntimeClient(chrome);
+
+    await expect(client.requestOriginPermission("https://models.example.com/v1/messages")).resolves.toBe(true);
+    expect(chrome.requestPermissions).toHaveBeenCalledWith({
+      origins: ["https://models.example.com/*"],
+    });
+    expect(chrome.sendMessage).not.toHaveBeenCalled();
+  });
+
   it("sends the explicit tabs permission request", async () => {
     const chrome = adapter({
       sendMessage: vi.fn().mockResolvedValue({

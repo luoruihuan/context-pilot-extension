@@ -52,6 +52,50 @@ async function collect(provider: AnthropicMessagesProvider, input: ChatRequest, 
 }
 
 describe("AnthropicMessagesProvider", () => {
+  it("supports a complete Messages endpoint without duplicating the path", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      sseResponse(["event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n"]),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await collect(
+      new AnthropicMessagesProvider(),
+      request(),
+      profile("https://ai.example.com/anthropic/v1/messages"),
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://ai.example.com/anthropic/v1/messages",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
+  it("derives the models endpoint from a complete Messages endpoint", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response("{}", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await new AnthropicMessagesProvider().testConnection(
+      profile("https://ai.example.com/anthropic/v1/messages"),
+      new AbortController().signal,
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://ai.example.com/anthropic/v1/models",
+      expect.objectContaining({ headers: expect.objectContaining({ "x-api-key": "test-anthropic-key" }) }),
+    );
+  });
+
+  it("does not duplicate the version prefix when a base URL ends in /v1", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      sseResponse(["event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n"]),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await collect(new AnthropicMessagesProvider(), request(), profile("https://ai.example.com/anthropic/v1"));
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("https://ai.example.com/anthropic/v1/messages");
+  });
+
   it("sends Messages request and emits text, usage, and completion", async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
       sseResponse([
