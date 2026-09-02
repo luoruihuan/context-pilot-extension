@@ -85,7 +85,7 @@ async function openPage(context: BrowserContext, url: string): Promise<Page> {
 async function reloadPanelForActiveTab(panel: Page, active: Page): Promise<void> {
   await active.bringToFront();
   await panel.reload();
-  await expect(panel.getByRole("heading", { name: "Context Pilot" })).toBeVisible();
+  await expect(panel.getByRole("main", { name: "Context Pilot" })).toBeVisible();
 }
 
 async function submit(panel: Page, question: string): Promise<void> {

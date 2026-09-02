@@ -31,12 +31,11 @@ export function MessageList({
       {turns.map((turn) => (
         <article className={styles.message} data-role={turn.role} key={turn.id}>
           <div className={styles.messageBody}>
-            <div className={styles.messageMeta}>
-              <strong>{turn.role === "assistant" ? "Context Pilot" : "你"}</strong>
+            {turn.status !== "complete" && <div className={styles.messageMeta}>
               {turn.status === "streaming" && <StatusBadge tone="busy">生成中</StatusBadge>}
               {turn.status === "error" && <StatusBadge tone="danger">失败</StatusBadge>}
               {turn.status === "stopped" && <StatusBadge tone="warning">已停止</StatusBadge>}
-            </div>
+            </div>}
             {turn.role === "assistant" && turn.status !== "streaming" ? (
               <MarkdownContent content={turn.content} />
             ) : (

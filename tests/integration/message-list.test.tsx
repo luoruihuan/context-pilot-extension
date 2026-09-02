@@ -60,5 +60,7 @@ describe("MessageList", () => {
     expect(messages[0]).toHaveAttribute("data-role", "user");
     expect(messages[1]).toHaveAttribute("data-role", "assistant");
     expect(screen.queryByTestId("message-avatar")).not.toBeInTheDocument();
+    expect(screen.queryByText("你")).not.toBeInTheDocument();
+    expect(screen.queryByText("Context Pilot")).not.toBeInTheDocument();
   });
 });

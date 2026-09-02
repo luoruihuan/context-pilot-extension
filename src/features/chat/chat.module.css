@@ -34,7 +34,7 @@
 .message[data-role="assistant"] { justify-content: flex-start; }
 .message[data-role="user"] { justify-content: flex-end; }
 .messageBody { background: var(--cp-color-surface-subtle); border: 1px solid var(--cp-color-border); border-radius: 4px 16px 16px 16px; box-sizing: border-box; min-width: 0; max-width: min(88%, 640px); padding: 10px 12px; }
-.message[data-role="user"] .messageBody { background: var(--cp-color-accent-soft); border-color: color-mix(in srgb, var(--cp-color-accent) 22%, var(--cp-color-border)); border-radius: 16px 4px 16px 16px; }
+.message[data-role="user"] .messageBody { border-radius: 16px 4px 16px 16px; }
 .messageMeta { align-items: center; color: var(--cp-color-text-muted); display: flex; font-size: 11px; gap: 8px; min-height: 18px; }
 .messageMeta strong { color: var(--cp-color-text); font-weight: 650; }
 .messageBody > p { line-height: 1.6; margin: 6px 0 0; white-space: pre-wrap; }

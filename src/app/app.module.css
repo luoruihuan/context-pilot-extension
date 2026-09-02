@@ -1,6 +1,3 @@
 .app { background: var(--cp-color-background); box-sizing: border-box; display: grid; grid-template-rows: 44px minmax(0, 1fr); height: 100vh; min-height: 420px; padding: 0; }
-.toolbar { align-items: center; background: var(--cp-color-surface); border-bottom: 1px solid var(--cp-color-border); display: flex; justify-content: space-between; padding: 0 8px 0 10px; }
-.brand { align-items: center; display: flex; gap: 8px; min-width: 0; }
-.brand > span { align-items: center; background: var(--cp-color-accent); border-radius: 5px; color: var(--cp-color-on-accent); display: flex; flex: 0 0 24px; font-size: 8px; font-weight: 800; height: 24px; justify-content: center; }
-.brand h1 { font-size: 13px; letter-spacing: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.toolbar { align-items: center; background: var(--cp-color-surface); border-bottom: 1px solid var(--cp-color-border); display: flex; justify-content: flex-end; padding: 0 8px; }
 .toolbar nav { display: flex; gap: 2px; }

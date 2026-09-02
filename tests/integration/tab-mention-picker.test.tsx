@@ -75,6 +75,23 @@ describe("Composer tab mentions", () => {
     expect(onTabsChange).toHaveBeenLastCalledWith([]);
   });
 
+  it("closes the picker when clicking outside the picker", async () => {
+    const user = userEvent.setup();
+    render(
+      <Composer
+        tabs={tabs}
+        selectedTabs={[]}
+        onTabsChange={vi.fn()}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    await user.type(screen.getByRole("textbox", { name: "向 AI 提问" }), "@");
+    expect(screen.getByRole("combobox", { name: "引用已打开页签" })).toBeVisible();
+    await user.click(document.body);
+    expect(screen.queryByRole("combobox", { name: "引用已打开页签" })).not.toBeInTheDocument();
+  });
+
   it("requests tabs permission before listing and origin permission before selecting a required tab", async () => {
     const user = userEvent.setup();
     const events: string[] = [];

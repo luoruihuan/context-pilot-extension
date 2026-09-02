@@ -10,12 +10,8 @@ function Workspace() {
   const app = useApp();
 
   return (
-    <main className={styles.app} aria-labelledby="app-title">
+    <main className={styles.app} aria-label="Context Pilot">
       <header className={styles.toolbar}>
-        <div className={styles.brand}>
-          <span>CP</span>
-          <h1 id="app-title">Context Pilot</h1>
-        </div>
         <nav aria-label="主要工具">
           <IconButton label="新对话" onClick={() => { app.resetChat(); app.setView("chat"); }}><Plus size={18} /></IconButton>
           <IconButton label="对话历史" onClick={() => app.setView("history")}><History size={17} /></IconButton>

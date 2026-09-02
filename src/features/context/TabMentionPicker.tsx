@@ -44,6 +44,16 @@ export function TabMentionPicker({
     inputRef.current?.focus();
   }, []);
 
+  useEffect(() => {
+    function handlePointerDown(event: PointerEvent): void {
+      if (event.target instanceof Node && !inputRef.current?.closest("[role=dialog]")?.contains(event.target)) {
+        onClose();
+      }
+    }
+    document.addEventListener("pointerdown", handlePointerDown, true);
+    return () => document.removeEventListener("pointerdown", handlePointerDown, true);
+  }, [onClose]);
+
   async function choose(index: number) {
     const tab = results[index];
     if (
