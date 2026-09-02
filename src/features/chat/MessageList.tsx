@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bot, Copy, RotateCcw, UserRound } from "lucide-react";
+import { Copy, RotateCcw } from "lucide-react";
 import type { ChatTurn } from "@/shared/types/domain";
 import { StatusBadge } from "@/shared/components/StatusBadge";
 import { MarkdownContent } from "./MarkdownContent";
@@ -29,10 +29,7 @@ export function MessageList({
   return (
     <div className={styles.messages} aria-live="polite">
       {turns.map((turn) => (
-        <article className={styles.message} key={turn.id}>
-          <div className={styles.avatar}>
-            {turn.role === "assistant" ? <Bot size={16} /> : <UserRound size={16} />}
-          </div>
+        <article className={styles.message} data-role={turn.role} key={turn.id}>
           <div className={styles.messageBody}>
             <div className={styles.messageMeta}>
               <strong>{turn.role === "assistant" ? "Context Pilot" : "你"}</strong>

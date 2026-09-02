@@ -219,12 +219,12 @@ test("@ 两页授权后读取 SPA 最新内容，单页失败仍继续联合分�
   await panel.getByRole("button", { name: "引用页签" }).click();
   await expect(panel.getByRole("dialog", { name: "选择页签" })).toBeVisible();
   await panel.setViewportSize({ width: 1280, height: 800 });
-  const contextLayout = await panel.getByLabel("本轮引用页签").evaluate((element) => {
-    const container = element.getBoundingClientRect();
-    const chips = [...element.querySelectorAll(":scope > span")];
-    return chips.every((chip) => chip.getBoundingClientRect().right <= container.right + 1);
+  const contextAboveComposer = await panel.getByLabel("本轮引用页签").evaluate((element) => {
+    const textarea = element.parentElement?.querySelector("textarea");
+    if (!(textarea instanceof HTMLElement)) return false;
+    return element.getBoundingClientRect().bottom <= textarea.getBoundingClientRect().top;
   });
-  expect(contextLayout).toBe(true);
+  expect(contextAboveComposer).toBe(true);
   await panel.screenshot({ path: join(storeAssetRoot, "screenshots/02-tab-selection.png") });
   await panel.setViewportSize({ width: 480, height: 800 });
   await panel.getByRole("combobox", { name: "引用已打开页签" }).press("Escape");

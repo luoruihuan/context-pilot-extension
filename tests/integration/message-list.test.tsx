@@ -45,4 +45,20 @@ describe("MessageList", () => {
 
     expect(screen.queryByRole("link", { name: /T1/ })).not.toBeInTheDocument();
   });
+
+  it("marks user and assistant bubbles by role without avatar containers", () => {
+    render(
+      <MessageList
+        turns={[
+          { id: "user-1", role: "user", content: "我的问题", sources: [], createdAt: 1, status: "complete" },
+          { id: "assistant-1", role: "assistant", content: "AI 的回答", sources: [], createdAt: 2, status: "complete" },
+        ]}
+      />,
+    );
+
+    const messages = screen.getAllByRole("article");
+    expect(messages[0]).toHaveAttribute("data-role", "user");
+    expect(messages[1]).toHaveAttribute("data-role", "assistant");
+    expect(screen.queryByTestId("message-avatar")).not.toBeInTheDocument();
+  });
 });

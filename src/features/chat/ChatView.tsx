@@ -1,7 +1,6 @@
 import { BarChart3, FileSearch, ListChecks, Rows3 } from "lucide-react";
 import { useState } from "react";
 import type { ChatTurn, TabReference } from "@/shared/types/domain";
-import { ContextChips } from "@/features/context/ContextChips";
 import { Composer } from "./Composer";
 import { MessageList } from "./MessageList";
 import type { ChatStatus, ChatUsage, SourceError } from "./chat-reducer";
@@ -52,17 +51,6 @@ export function ChatView(props: ChatViewProps) {
     return tab;
   });
 
-  async function retryTabAccess(tab: TabReference): Promise<boolean> {
-    if (!props.onRequestTabAccess) return false;
-    const granted = await props.onRequestTabAccess(tab);
-    if (granted) {
-      props.onTabsChange(props.selectedTabs.map((item) =>
-        item.tabId === tab.tabId ? { ...item, permission: "granted" as const } : item
-      ));
-    }
-    return granted;
-  }
-
   function submitWithDisclosure(message: string, tabIds: number[]): void {
     if (props.disclosureAccepted === false) {
       setPendingSubmit({ message, tabIds: [...tabIds] });
@@ -86,19 +74,6 @@ export function ChatView(props: ChatViewProps) {
 
   return (
     <section className={styles.chatView} aria-label="AI 对话">
-      <aside className={styles.contextPanel} aria-label="引用页签">
-        <div className={styles.contextPanelHeader}>
-          <span>引用页签</span>
-          <span>{selectedTabs.length}/10</span>
-        </div>
-        <ContextChips
-          tabs={selectedTabs}
-          layout="vertical"
-          onRemove={(tabId) => props.onTabsChange(selectedTabs.filter((tab) => tab.tabId !== tabId))}
-          onRequestTabAccess={retryTabAccess}
-        />
-      </aside>
-      <div className={styles.conversationPanel}>
       {pendingSubmit && (
         <div className={styles.disclosureBackdrop} role="presentation">
           <div className={styles.disclosureDialog} role="dialog" aria-modal="true" aria-labelledby="disclosure-title" aria-describedby="disclosure-copy">
@@ -189,7 +164,6 @@ export function ChatView(props: ChatViewProps) {
         onStop={props.onStop}
         stopLabel={props.readingTabs && props.readingTabs.length > 0 ? "停止读取" : "停止生成"}
       />
-      </div>
     </section>
   );
 }
