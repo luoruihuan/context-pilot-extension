@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Bot, Copy, RotateCcw, UserRound } from "lucide-react";
 import type { ChatTurn } from "@/shared/types/domain";
 import { StatusBadge } from "@/shared/components/StatusBadge";
+import { MarkdownContent } from "./MarkdownContent";
 import styles from "./chat.module.css";
 
 export function MessageList({
@@ -39,7 +40,11 @@ export function MessageList({
               {turn.status === "error" && <StatusBadge tone="danger">失败</StatusBadge>}
               {turn.status === "stopped" && <StatusBadge tone="warning">已停止</StatusBadge>}
             </div>
-            <p>{turn.content}</p>
+            {turn.role === "assistant" && turn.status !== "streaming" ? (
+              <MarkdownContent content={turn.content} />
+            ) : (
+              <p>{turn.content}</p>
+            )}
             {turn.role === "assistant" && turn.status !== "streaming" && (
               <div className={styles.messageActions}>
                 <button type="button" aria-label={`复制回答：${turn.content || "失败消息"}`} onClick={() => void copyAnswer(turn)}>
@@ -56,15 +61,6 @@ export function MessageList({
               <p className={copyFeedback.error ? styles.copyError : styles.copyStatus} role={copyFeedback.error ? "alert" : "status"}>
                 {copyFeedback.message}
               </p>
-            )}
-            {turn.sources.length > 0 && (
-              <div className={styles.sources}>
-                {turn.sources.map((source) => (
-                  <a href={source.url} key={source.sourceId} target="_blank" rel="noreferrer">
-                    {source.sourceId} · {source.title}
-                  </a>
-                ))}
-              </div>
             )}
           </div>
         </article>

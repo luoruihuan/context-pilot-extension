@@ -2,7 +2,6 @@ import { useState, type KeyboardEvent } from "react";
 import { AtSign, Send, Square } from "lucide-react";
 import type { TabReference } from "@/shared/types/domain";
 import { IconButton } from "@/shared/components/IconButton";
-import { ContextChips } from "@/features/context/ContextChips";
 import { TabMentionPicker } from "@/features/context/TabMentionPicker";
 import styles from "./chat.module.css";
 
@@ -51,17 +50,6 @@ export function Composer({
     setPickerOpen(true);
   }
 
-  async function retryTabAccess(tab: TabReference): Promise<boolean> {
-    if (!onRequestTabAccess) return false;
-    const granted = await onRequestTabAccess(tab);
-    if (granted) {
-      onTabsChange(selectedTabs.map((item) =>
-        item.tabId === tab.tabId ? { ...item, permission: "granted" } : item
-      ));
-    }
-    return granted;
-  }
-
   function submit() {
     const message = value.trim();
     if (!message || disabled || streaming) return;
@@ -93,13 +81,6 @@ export function Composer({
         />
       )}
       {pickerError && <p className={styles.permissionError} role="alert">{pickerError}</p>}
-      <ContextChips
-        tabs={selectedTabs}
-        onRequestTabAccess={retryTabAccess}
-        onRemove={(tabId) =>
-          onTabsChange(selectedTabs.filter((tab) => tab.tabId !== tabId))
-        }
-      />
       <div className={styles.composer}>
         <textarea
           aria-label="向 AI 提问"

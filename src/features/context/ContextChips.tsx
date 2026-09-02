@@ -3,17 +3,21 @@ import type { TabReference } from "@/shared/types/domain";
 import { StatusBadge } from "@/shared/components/StatusBadge";
 import styles from "./context.module.css";
 
+type ContextChipsProps = {
+  tabs: TabReference[];
+  onRemove(tabId: number): void;
+  onRequestTabAccess?(tab: TabReference): Promise<boolean>;
+  layout?: "inline" | "vertical";
+};
+
 export function ContextChips({
   tabs,
   onRemove,
   onRequestTabAccess,
-}: {
-  tabs: TabReference[];
-  onRemove(tabId: number): void;
-  onRequestTabAccess?(tab: TabReference): Promise<boolean>;
-}) {
+  layout = "inline",
+}: ContextChipsProps) {
   return (
-    <div className={styles.chips} aria-label="本轮引用页签">
+    <div className={`${styles.chips} ${layout === "vertical" ? styles.vertical : ""}`} aria-label="本轮引用页签">
       {tabs.map((tab) => (
         <span className={styles.chip} key={tab.tabId}>
           <Globe2 size={13} aria-hidden="true" />

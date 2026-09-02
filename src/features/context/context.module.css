@@ -7,6 +7,10 @@
   scrollbar-width: none;
 }
 
+.vertical { flex-direction: column; min-height: 0; overflow: visible; }
+.vertical .chip { box-sizing: border-box; flex: 0 0 auto; max-width: 100%; min-height: 32px; width: 100%; }
+.vertical .chipTitle { flex: 1; max-width: none; }
+
 .chip {
   align-items: center;
   background: var(--cp-color-surface-subtle);
@@ -74,3 +78,9 @@
 .tabCopy strong, .tabCopy small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tabCopy strong { font-size: 13px; font-weight: 600; }
 .tabCopy small { color: var(--cp-color-text-muted); font-size: 11px; }
+
+@media (max-width: 620px) {
+  .vertical { flex-direction: row; overflow-x: auto; }
+  .vertical .chip { width: auto; }
+  .vertical .chipTitle { max-width: 150px; }
+}

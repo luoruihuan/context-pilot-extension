@@ -1,5 +1,9 @@
-.chatView { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-height: 0; }
-.scrollRegion { min-height: 0; overflow-y: auto; padding: 20px 16px 12px; }
+.chatView { display: grid; grid-template-columns: minmax(168px, 220px) minmax(0, 1fr); min-height: 0; }
+.contextPanel { background: var(--cp-color-surface-subtle); border-right: 1px solid var(--cp-color-border); min-width: 0; overflow-y: auto; padding: 12px 10px; }
+.contextPanelHeader { align-items: center; color: var(--cp-color-text-muted); display: flex; font-size: 11px; justify-content: space-between; margin: 0 2px 8px; }
+.contextPanelHeader span:first-child { color: var(--cp-color-text); font-weight: 650; }
+.conversationPanel { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-height: 0; min-width: 0; }
+.scrollRegion { min-height: 0; overflow-y: auto; padding: 18px 18px 12px; }
 .chatError, .sourceWarning, .readingStatus, .persistenceWarning { border: 1px solid var(--cp-color-border); border-radius: var(--cp-button-radius); font-size: 12px; line-height: 1.5; margin: 0 auto 12px; max-width: 720px; padding: 8px 10px; }
 .chatError { color: var(--cp-color-danger); }
 .persistenceWarning { background: var(--cp-color-warning-soft); color: var(--cp-color-warning); }
@@ -33,13 +37,35 @@
 .message { display: grid; gap: 10px; grid-template-columns: 28px minmax(0, 1fr); }
 .avatar { align-items: center; background: var(--cp-color-surface-subtle); border-radius: var(--cp-button-radius); color: var(--cp-color-accent); display: flex; height: 28px; justify-content: center; }
 .messageBody { min-width: 0; }
-.messageBody p { line-height: 1.65; margin: 6px 0; white-space: pre-wrap; }
+.messageBody > p { line-height: 1.65; margin: 6px 0; white-space: pre-wrap; }
 .messageMeta { align-items: center; display: flex; gap: 8px; min-height: 22px; }
 .messageActions { display: flex; gap: 6px; margin-top: 8px; }
 .messageActions button { align-items: center; background: transparent; border: 1px solid var(--cp-color-border); border-radius: var(--cp-button-radius); color: var(--cp-color-text-muted); display: inline-flex; font: inherit; font-size: 11px; gap: 4px; min-height: 28px; padding: 0 8px; }
 .copyError, .copyStatus { font-size: 11px; margin: 6px 0 0 !important; }
 .copyError { color: var(--cp-color-danger); }
 .copyStatus { color: var(--cp-color-success); }
-.sources { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-.sources a { background: var(--cp-color-surface-subtle); border-radius: var(--cp-button-radius); color: var(--cp-color-accent); font-size: 11px; padding: 4px 7px; text-decoration: none; }
+.markdown { font-size: 14px; line-height: 1.7; margin: 6px 0; overflow-wrap: anywhere; }
+.markdown > :first-child { margin-top: 0; }
+.markdown > :last-child { margin-bottom: 0; }
+.markdown p { margin: 0 0 10px; }
+.markdown h1, .markdown h2, .markdown h3, .markdown h4 { line-height: 1.3; margin: 16px 0 8px; }
+.markdown h1 { font-size: 20px; }
+.markdown h2 { font-size: 17px; }
+.markdown h3 { font-size: 15px; }
+.markdown ul, .markdown ol { margin: 8px 0 12px; padding-left: 22px; }
+.markdown li + li { margin-top: 4px; }
+.markdown blockquote { border-left: 3px solid var(--cp-color-accent); color: var(--cp-color-text-muted); margin: 10px 0; padding: 2px 0 2px 12px; }
+.markdown code { background: var(--cp-color-surface-subtle); border-radius: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .9em; padding: 2px 5px; }
+.markdown pre { background: var(--cp-color-slate-900); border-radius: var(--cp-button-radius); color: var(--cp-color-slate-50); margin: 10px 0; overflow-x: auto; padding: 12px; }
+.markdown pre code { background: transparent; border-radius: 0; padding: 0; }
+.markdown table { border-collapse: collapse; display: block; margin: 10px 0; max-width: 100%; overflow-x: auto; }
+.markdown th, .markdown td { border: 1px solid var(--cp-color-border-strong); padding: 6px 8px; text-align: left; }
+.markdown th { background: var(--cp-color-surface-subtle); font-weight: 650; }
+.markdown a { color: var(--cp-color-accent); text-decoration: underline; text-underline-offset: 2px; }
+@media (max-width: 620px) {
+  .chatView { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
+  .contextPanel { border-bottom: 1px solid var(--cp-color-border); border-right: 0; max-height: 78px; overflow: hidden; padding: 6px 10px; }
+  .contextPanelHeader { margin-bottom: 3px; }
+  .scrollRegion { padding: 14px 12px 10px; }
+}
 @media (max-width: 300px) { .quickActions { grid-template-columns: 1fr; } .welcome { margin-top: 24px; } }

@@ -53,6 +53,9 @@ describe("multi-tab chat", () => {
       />,
     );
 
+    expect(screen.getByLabelText("本轮引用页签")).toBeVisible();
+    expect(screen.queryByText("当前上下文")).not.toBeInTheDocument();
+
     await user.type(screen.getByRole("textbox", { name: "向 AI 提问" }), "总结页面");
     await user.click(screen.getByRole("button", { name: "发送消息" }));
 

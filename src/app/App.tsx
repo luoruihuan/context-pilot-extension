@@ -1,7 +1,6 @@
 import { History, Plus, Settings } from "lucide-react";
 import { IconButton } from "@/shared/components/IconButton";
 import { ChatView } from "@/features/chat/ChatView";
-import { ContextChips } from "@/features/context/ContextChips";
 import { HistoryView } from "@/features/history/HistoryView";
 import { SettingsView } from "@/features/settings/SettingsView";
 import { AppProvider, useApp } from "./AppProvider";
@@ -23,10 +22,6 @@ function Workspace() {
           <IconButton label="设置" onClick={() => app.setView("settings")}><Settings size={17} /></IconButton>
         </nav>
       </header>
-      <section className={styles.contextBand} aria-labelledby="context-title">
-        <div className={styles.contextLabel}><strong id="context-title">当前上下文</strong><span>{app.selectedTabs.length}/10</span></div>
-        <ContextChips tabs={app.selectedTabs} onRemove={(tabId) => app.setSelectedTabs(app.selectedTabs.filter((tab) => tab.tabId !== tabId))} />
-      </section>
       {app.view === "chat" && (
         <ChatView
           turns={app.chat.turns}
