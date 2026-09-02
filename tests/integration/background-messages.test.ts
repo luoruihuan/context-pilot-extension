@@ -295,6 +295,18 @@ describe("BackgroundMessageRouter", () => {
 });
 
 describe("RuntimeClient", () => {
+  it("requests tabs permission directly so Chrome can keep the user gesture", async () => {
+    const chrome = adapter({
+      requestPermissions: vi.fn().mockResolvedValue(true),
+      sendMessage: vi.fn(),
+    });
+    const client = new RuntimeClient(chrome);
+
+    await expect(client.requestTabsPermission()).resolves.toBe(true);
+    expect(chrome.requestPermissions).toHaveBeenCalledWith({ permissions: ["tabs"] });
+    expect(chrome.sendMessage).not.toHaveBeenCalled();
+  });
+
   it("requests model origin directly so Chrome can keep the user gesture", async () => {
     const chrome = adapter({
       containsPermissions: vi.fn().mockResolvedValue(false),
@@ -312,17 +324,14 @@ describe("RuntimeClient", () => {
 
   it("sends the explicit tabs permission request", async () => {
     const chrome = adapter({
-      sendMessage: vi.fn().mockResolvedValue({
-        type: "context-pilot/tabs-permission",
-        granted: true,
-      }),
+      requestPermissions: vi.fn().mockResolvedValue(true),
+      sendMessage: vi.fn(),
     });
     const client = new RuntimeClient(chrome);
 
     await expect(client.requestTabsPermission()).resolves.toBe(true);
-    expect(chrome.sendMessage).toHaveBeenCalledWith({
-      type: "context-pilot/request-tabs-permission",
-    });
+    expect(chrome.requestPermissions).toHaveBeenCalledWith({ permissions: ["tabs"] });
+    expect(chrome.sendMessage).not.toHaveBeenCalled();
   });
 });
 

@@ -55,6 +55,18 @@ async function collect(provider: OpenAIChatProvider, input: ChatRequest) {
 }
 
 describe("OpenAIChatProvider", () => {
+  it("tests the configured Chat Completions endpoint instead of requiring /models", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response("{}", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(new OpenAIChatProvider().testConnection(profile(), new AbortController().signal)).resolves.toBeUndefined();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://gateway.example/v1/chat/completions",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
   it("sends Chat Completions request and emits split text and usage", async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
       sseResponse([

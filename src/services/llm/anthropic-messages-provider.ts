@@ -23,8 +23,15 @@ export class AnthropicMessagesProvider implements ModelProvider {
   async testConnection(profile: ModelProfile, signal: AbortSignal): Promise<void> {
     let response: Response;
     try {
-      response = await fetch(endpointUrl(profile.baseUrl, "/v1/models"), {
+      response = await fetch(endpointUrl(profile.baseUrl, "/v1/messages"), {
+        method: "POST",
         headers: this.headers(profile),
+        body: JSON.stringify({
+          model: profile.model,
+          messages: [{ role: "user", content: "ping" }],
+          max_tokens: 1,
+          stream: false,
+        }),
         signal,
       });
     } catch (error) {

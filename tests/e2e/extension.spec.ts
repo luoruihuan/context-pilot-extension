@@ -133,11 +133,11 @@ test("生产 manifest 下可选页签和模型 origin 权限拒绝均可重试",
 
     await panel.getByRole("button", { name: "设置" }).click();
     await panel.getByRole("button", { name: "测试连接" }).click();
-    await expect(panel.getByRole("alert").last()).toContainText("请重试授权");
+    await expect(panel.getByRole("alert").last()).toContainText("请在设置页重新点击授权");
     expect(server.requests.filter((request) => request.path === "/v1/models")).toHaveLength(0);
     await panel.getByLabel("配置名称").fill("不应保存");
     await panel.getByRole("button", { name: "保存模型" }).click();
-    await expect(panel.getByRole("alert").last()).toContainText("请重试授权");
+    await expect(panel.getByRole("alert").last()).toContainText("请在设置页重新点击授权");
     const profiles = await panel.evaluate(async () => (await chrome.storage.local.get("modelProfiles")).modelProfiles);
     expect(profiles).toEqual([expect.objectContaining({ name: "权限测试" })]);
   } finally {

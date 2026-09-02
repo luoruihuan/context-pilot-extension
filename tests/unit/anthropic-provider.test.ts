@@ -52,6 +52,23 @@ async function collect(provider: AnthropicMessagesProvider, input: ChatRequest, 
 }
 
 describe("AnthropicMessagesProvider", () => {
+  it("tests the configured Messages endpoint instead of requiring /v1/models", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response("{}", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      new AnthropicMessagesProvider().testConnection(
+        profile("https://ai.example.com/anthropic/v1/messages"),
+        new AbortController().signal,
+      ),
+    ).resolves.toBeUndefined();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://ai.example.com/anthropic/v1/messages",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
   it("supports a complete Messages endpoint without duplicating the path", async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
       sseResponse(["event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n"]),
@@ -70,7 +87,7 @@ describe("AnthropicMessagesProvider", () => {
     );
   });
 
-  it("derives the models endpoint from a complete Messages endpoint", async () => {
+  it("tests the configured Messages endpoint for a complete endpoint URL", async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response("{}", { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
 
@@ -80,8 +97,8 @@ describe("AnthropicMessagesProvider", () => {
     );
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://ai.example.com/anthropic/v1/models",
-      expect.objectContaining({ headers: expect.objectContaining({ "x-api-key": "test-anthropic-key" }) }),
+      "https://ai.example.com/anthropic/v1/messages",
+      expect.objectContaining({ method: "POST" }),
     );
   });
 

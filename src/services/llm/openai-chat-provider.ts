@@ -20,8 +20,18 @@ export class OpenAIChatProvider implements ModelProvider {
   async testConnection(profile: ModelProfile, signal: AbortSignal): Promise<void> {
     let response: Response;
     try {
-      response = await fetch(endpointUrl(profile.baseUrl, "/models"), {
-        headers: { authorization: `Bearer ${profile.apiKey}` },
+      response = await fetch(endpointUrl(profile.baseUrl, "/chat/completions"), {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${profile.apiKey}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          model: profile.model,
+          messages: [{ role: "user", content: "ping" }],
+          max_tokens: 1,
+          stream: false,
+        }),
         signal,
       });
     } catch (error) {

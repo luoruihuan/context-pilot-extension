@@ -4,8 +4,27 @@ import {
 } from "@/services/browser/chrome-adapter";
 import { ExtractionClient } from "@/services/browser/extraction-client";
 import { validateModelBaseUrl } from "@/services/llm/url-policy";
+import { originPatternForPage } from "@/services/browser/permission-service";
 import type { TabReference } from "@/shared/types/domain";
 import type { ExtensionResponse } from "@/shared/types/messages";
+
+const PERMISSION_REQUEST_TIMEOUT_MS = 3_000;
+
+async function requestPermissionWithTimeout(
+  request: () => Promise<boolean>,
+): Promise<boolean> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      request(),
+      new Promise<boolean>((resolve) => {
+        timer = setTimeout(() => resolve(false), PERMISSION_REQUEST_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
 
 function expectResponse<T extends ExtensionResponse["type"]>(
   response: ExtensionResponse,
@@ -24,7 +43,7 @@ export class RuntimeClient {
   readonly extraction: ExtractionClient;
 
   constructor(
-    private readonly chrome: Pick<ChromeAdapter, "sendMessage" | "containsPermissions" | "requestPermissions"> = new BrowserChromeAdapter(),
+    private readonly chrome: Pick<ChromeAdapter, "sendMessage" | "requestPermissions"> = new BrowserChromeAdapter(),
   ) {
     this.extraction = new ExtractionClient((request) => this.chrome.sendMessage(request));
   }
@@ -35,21 +54,20 @@ export class RuntimeClient {
   }
 
   async requestTabsPermission(): Promise<boolean> {
-    const response = await this.chrome.sendMessage({ type: "context-pilot/request-tabs-permission" });
-    return expectResponse(response, "context-pilot/tabs-permission").granted;
+    return requestPermissionWithTimeout(() =>
+      this.chrome.requestPermissions({ permissions: ["tabs"] }),
+    );
   }
 
   async requestOriginPermission(baseUrl: string): Promise<boolean> {
     const { originPattern } = validateModelBaseUrl(baseUrl);
-    return this.chrome.requestPermissions({ origins: [originPattern] });
+    return requestPermissionWithTimeout(() =>
+      this.chrome.requestPermissions({ origins: [originPattern] }),
+    );
   }
 
   async requestTabAccess(tabId: number, origin: string): Promise<boolean> {
-    const response = await this.chrome.sendMessage({
-      type: "context-pilot/request-tab-access",
-      tabId,
-      origin,
-    });
-    return expectResponse(response, "context-pilot/tab-access").granted;
+    void tabId;
+    return this.chrome.requestPermissions({ origins: [originPatternForPage(origin)] });
   }
 }
